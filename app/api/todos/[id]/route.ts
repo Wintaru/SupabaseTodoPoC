@@ -47,6 +47,15 @@ export async function PATCH(
     const body = await request.json()
     const supabase = await createClient()
 
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const updateData: TodoUpdate = {}
 
     if (body.title !== undefined) {
@@ -104,6 +113,15 @@ export async function DELETE(
   try {
     const { id } = await context.params
     const supabase = await createClient()
+
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
 
     const { error } = await supabase
       .from('todos')

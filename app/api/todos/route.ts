@@ -36,6 +36,15 @@ export async function POST(request: Request) {
     const body = await request.json()
     const supabase = await createClient()
 
+    // Check authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     // Validate required fields
     if (!body.title || body.title.trim() === '') {
       return NextResponse.json(
@@ -49,6 +58,7 @@ export async function POST(request: Request) {
       description: body.description?.trim() || null,
       is_completed: body.is_completed || false,
       priority: body.priority || 'medium',
+      user_id: user.id,
     }
 
     const { data, error } = await supabase
