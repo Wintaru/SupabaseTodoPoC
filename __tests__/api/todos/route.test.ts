@@ -8,9 +8,16 @@ jest.mock('@/lib/supabase/server', () => ({
 
 describe('/api/todos', () => {
   let mockSupabase: any
+  const TEST_USER_ID = 'test-user-id-123'
 
   beforeEach(() => {
     mockSupabase = {
+      auth: {
+        getUser: jest.fn(() => ({
+          data: { user: { id: TEST_USER_ID } },
+          error: null,
+        })),
+      },
       from: jest.fn(() => mockSupabase),
       select: jest.fn(() => mockSupabase),
       insert: jest.fn(() => mockSupabase),
@@ -33,6 +40,7 @@ describe('/api/todos', () => {
           description: 'Test Description',
           is_completed: false,
           priority: 'medium',
+          user_id: TEST_USER_ID,
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-01T00:00:00Z',
         },
@@ -75,6 +83,7 @@ describe('/api/todos', () => {
         description: 'New Description',
         is_completed: false,
         priority: 'high',
+        user_id: TEST_USER_ID,
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
       }
@@ -103,9 +112,32 @@ describe('/api/todos', () => {
         description: 'New Description',
         is_completed: false,
         priority: 'high',
+        user_id: TEST_USER_ID,
       })
       expect(data).toEqual(newTodo)
       expect(response.status).toBe(201)
+    })
+
+    it('should return 401 if user is not authenticated', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Unauthorized' },
+      })
+
+      const request = new Request('http://localhost:3000/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'New Todo',
+        }),
+      })
+
+      const response = await POST(request)
+      const data = await response.json()
+
+      expect(data).toEqual({ error: 'Unauthorized' })
+      expect(response.status).toBe(401)
+      expect(mockSupabase.insert).not.toHaveBeenCalled()
     })
 
     it('should reject empty title', async () => {
@@ -156,6 +188,7 @@ describe('/api/todos', () => {
         description: null,
         is_completed: false,
         priority: 'medium',
+        user_id: TEST_USER_ID,
       })
     })
 
@@ -181,6 +214,7 @@ describe('/api/todos', () => {
         description: 'Trimmed Description',
         is_completed: false,
         priority: 'medium',
+        user_id: TEST_USER_ID,
       })
     })
 
