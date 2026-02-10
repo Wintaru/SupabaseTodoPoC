@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import '@testing-library/jest-dom'
 import userEvent from '@testing-library/user-event'
 import TodoList from '@/components/todos/TodoList'
 import type { Todo } from '@/lib/types'
@@ -16,6 +17,7 @@ describe('TodoList', () => {
       priority: 'high',
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
+      user_id: 'test-user-id',
     },
     {
       id: '2',
@@ -25,6 +27,7 @@ describe('TodoList', () => {
       priority: 'low',
       created_at: '2024-01-02T00:00:00Z',
       updated_at: '2024-01-02T00:00:00Z',
+      user_id: 'test-user-id',
     },
   ]
 
@@ -74,6 +77,7 @@ describe('TodoList', () => {
       priority: 'medium',
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
+      user_id: 'test-user-id',
     }
 
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -133,6 +137,7 @@ describe('TodoList', () => {
       priority: 'high',
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
+      user_id: 'test-user-id',
     }
 
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -259,6 +264,7 @@ describe('TodoList', () => {
         priority: 'medium',
         created_at: '2024-01-03T00:00:00Z',
         updated_at: '2024-01-03T00:00:00Z',
+        user_id: 'test-user-id',
       }),
     })
 

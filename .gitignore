@@ -41,6 +41,7 @@ next-env.d.ts
 .temp
 supabase/.branches
 supabase/.temp
+supabase/.env.local
 
 # OS files
 .DS_Store

@@ -7,12 +7,19 @@ jest.mock('@/lib/supabase/server', () => ({
 
 describe('/api/todos/[id]', () => {
   let mockSupabase: any
+  const TEST_USER_ID = 'test-user-id-123'
   const mockContext = {
     params: Promise.resolve({ id: 'test-id-123' }),
   }
 
   beforeEach(() => {
     mockSupabase = {
+      auth: {
+        getUser: jest.fn(() => ({
+          data: { user: { id: TEST_USER_ID } },
+          error: null,
+        })),
+      },
       from: jest.fn(() => mockSupabase),
       select: jest.fn(() => mockSupabase),
       update: jest.fn(() => mockSupabase),
@@ -35,6 +42,7 @@ describe('/api/todos/[id]', () => {
         description: 'Test Description',
         is_completed: false,
         priority: 'medium',
+        user_id: TEST_USER_ID,
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
       }
@@ -78,6 +86,7 @@ describe('/api/todos/[id]', () => {
         description: 'Updated Description',
         is_completed: true,
         priority: 'high',
+        user_id: TEST_USER_ID,
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-02T00:00:00Z',
       }
@@ -111,6 +120,28 @@ describe('/api/todos/[id]', () => {
       expect(mockSupabase.eq).toHaveBeenCalledWith('id', 'test-id-123')
       expect(data).toEqual(updatedTodo)
       expect(response.status).toBe(200)
+    })
+
+    it('should return 401 if user is not authenticated', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Unauthorized' },
+      })
+
+      const request = new Request('http://localhost:3000/api/todos/test-id-123', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Updated',
+        }),
+      })
+
+      const response = await PATCH(request, mockContext)
+      const data = await response.json()
+
+      expect(data).toEqual({ error: 'Unauthorized' })
+      expect(response.status).toBe(401)
+      expect(mockSupabase.update).not.toHaveBeenCalled()
     })
 
     it('should reject empty title', async () => {
@@ -234,6 +265,24 @@ describe('/api/todos/[id]', () => {
       expect(mockSupabase.eq).toHaveBeenCalledWith('id', 'test-id-123')
       expect(data).toEqual({ success: true })
       expect(response.status).toBe(200)
+    })
+
+    it('should return 401 if user is not authenticated', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Unauthorized' },
+      })
+
+      const request = new Request('http://localhost:3000/api/todos/test-id-123', {
+        method: 'DELETE',
+      })
+
+      const response = await DELETE(request, mockContext)
+      const data = await response.json()
+
+      expect(data).toEqual({ error: 'Unauthorized' })
+      expect(response.status).toBe(401)
+      expect(mockSupabase.delete).not.toHaveBeenCalled()
     })
 
     it('should handle database errors', async () => {

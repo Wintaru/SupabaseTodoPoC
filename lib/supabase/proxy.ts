@@ -37,12 +37,11 @@ export async function updateSession(request: NextRequest) {
 
   const user = data?.claims
 
-  // Authentication redirect disabled for PoC
-  // Uncomment the code below when you implement authentication
-  /*
+  // Redirect unauthenticated users to login page
   if (
     !user &&
     !request.nextUrl.pathname.startsWith('/login') &&
+    !request.nextUrl.pathname.startsWith('/signup') &&
     !request.nextUrl.pathname.startsWith('/auth')
   ) {
     // no user, potentially respond by redirecting the user to the login page
@@ -50,7 +49,6 @@ export async function updateSession(request: NextRequest) {
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
-  */
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
   // creating a new response object with NextResponse.next() make sure to:
