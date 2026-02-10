@@ -1,16 +1,30 @@
 'use client'
 
-import { useState, FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, FormEvent, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Check for error messages in URL params
+  useEffect(() => {
+    const errorParam = searchParams.get('error')
+    const errorDescription = searchParams.get('error_description')
+    if (errorParam) {
+      if (errorDescription) {
+        setError(decodeURIComponent(errorDescription))
+      } else if (errorParam === 'confirmation_failed') {
+        setError('Email confirmation failed. Please try signing up again.')
+      }
+    }
+  }, [searchParams])
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault()
@@ -55,7 +69,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+        <form className="mt-8 space-y-6" onSubmit={handleLogin} method="POST">
           {error && (
             <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
               <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
@@ -110,5 +124,17 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

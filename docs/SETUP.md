@@ -91,6 +91,26 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key_from_step_6
 - Replace `your_publishable_key_from_step_6` with the actual key from the `supabase start` output
 - This file is gitignored by default - never commit it!
 
+### 7b. Configure Email Confirmation (Optional)
+
+If you want to test email confirmation locally, create `supabase/.env.local`:
+
+```bash
+# supabase/.env.local
+# Disable auto-confirmation so users must confirm email addresses
+GOTRUE_MAILER_AUTOCONFIRM=false
+```
+
+Then restart Supabase:
+
+```bash
+supabase stop && supabase start
+```
+
+**View emails:** Open Mailpit at http://127.0.0.1:54324
+
+**Learn more:** See [AUTHENTICATION.md](./AUTHENTICATION.md) for complete auth setup
+
 ### 8. Create Your First Migration
 
 ```bash
@@ -247,6 +267,7 @@ After generating types, restart your TypeScript server:
 
 ## Next Steps
 
+- Read [AUTHENTICATION.md](./AUTHENTICATION.md) to learn about user authentication and RLS
 - Read [MIGRATIONS.md](./MIGRATIONS.md) to learn about database migrations
 - Read [NEW_PROJECT_GUIDE.md](./NEW_PROJECT_GUIDE.md) to replicate this setup for new features
 - Check out [Supabase Documentation](https://supabase.com/docs)

@@ -142,8 +142,8 @@ export default function TodoList({ initialTodos }: TodoListProps) {
             >
               <input
                 type="checkbox"
-                checked={todo.is_completed}
-                onChange={() => toggleTodo(todo.id, todo.is_completed)}
+                checked={todo.is_completed ?? false}
+                onChange={() => toggleTodo(todo.id, todo.is_completed ?? false)}
                 className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <div className="flex-1">

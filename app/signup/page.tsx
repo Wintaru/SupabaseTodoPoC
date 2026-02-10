@@ -95,7 +95,7 @@ export default function SignupPage() {
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSignup}>
+        <form className="mt-8 space-y-6" onSubmit={handleSignup} method="POST">
           {error && (
             <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
               <p className="text-sm text-red-800 dark:text-red-400">{error}</p>

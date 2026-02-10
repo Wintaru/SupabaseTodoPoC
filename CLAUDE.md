@@ -156,6 +156,34 @@ className="hover:bg-gray-100 dark:hover:bg-gray-700"
    - All tests must pass
    - Add tests for new features
 
+### Verifying Changes
+
+**IMPORTANT:** After making any code changes, always verify the code is valid by running:
+
+1. **Build check:**
+   ```bash
+   npm run build
+   ```
+   - Ensures production build works
+   - Catches TypeScript errors
+   - Verifies all imports are correct
+
+2. **Type checking:**
+   ```bash
+   npx tsc --noEmit
+   ```
+   - Validates TypeScript types without building
+   - Faster than full build for quick checks
+
+3. **Run tests:**
+   ```bash
+   npm test
+   ```
+   - Ensures all tests pass
+   - Confirms no regressions
+
+**Do this BEFORE staging changes for commit.** This prevents broken code from being committed.
+
 ## Code Style
 
 ### TypeScript
