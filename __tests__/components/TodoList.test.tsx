@@ -7,6 +7,37 @@ import type { Todo } from '@/lib/types'
 // Mock fetch
 global.fetch = jest.fn()
 
+// Mock Supabase client
+jest.mock('@/lib/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    channel: jest.fn(() => ({
+      on: jest.fn().mockReturnThis(),
+      subscribe: jest.fn((callback) => {
+        // Call callback with SUBSCRIBED status
+        if (typeof callback === 'function') {
+          callback('SUBSCRIBED')
+        }
+        return {}
+      }),
+    })),
+    removeChannel: jest.fn(),
+    auth: {
+      getSession: jest.fn().mockResolvedValue({
+        data: {
+          session: {
+            access_token: 'mock-access-token',
+            user: { id: 'test-user-id', email: 'test@example.com' },
+          },
+        },
+        error: null,
+      }),
+    },
+    realtime: {
+      setAuth: jest.fn(),
+    },
+  })),
+}))
+
 describe('TodoList', () => {
   const mockTodos: Todo[] = [
     {

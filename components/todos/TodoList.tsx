@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { Todo } from '@/lib/types'
 
 interface TodoListProps {
@@ -13,6 +15,93 @@ export default function TodoList({ initialTodos }: TodoListProps) {
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [isLoading, setIsLoading] = useState(false)
+  const channelRef = useRef<RealtimeChannel | null>(null)
+
+  // Set up real-time subscription for todos
+  // IMPORTANT: We must wait for the auth session to be ready before subscribing.
+  // The Supabase JS client initializes auth asynchronously — if we subscribe
+  // before the JWT is available, the Realtime WebSocket connects with only the
+  // anon key, causing WALRUS's RLS SELECT check to fail (auth.uid() = null).
+  // DELETE events still work because Realtime bypasses RLS for deletes.
+  useEffect(() => {
+    const supabase = createClient()
+    let cancelled = false
+
+    const setupSubscription = async () => {
+      // Wait for the auth session to be fully initialized
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (cancelled) return
+
+      if (!session) {
+        console.warn('No auth session — skipping Realtime subscription')
+        return
+      }
+
+      // Explicitly set the Realtime auth token so WALRUS can evaluate
+      // RLS policies with the correct user identity
+      supabase.realtime.setAuth(session.access_token)
+
+      const channel = supabase
+        .channel('todos-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'todos',
+          },
+          (payload) => {
+            // Only add if not already in list (prevents duplicate from optimistic update)
+            setTodos((current) => {
+              const exists = current.some(todo => todo.id === payload.new.id)
+              if (exists) return current
+              return [payload.new as Todo, ...current]
+            })
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'todos',
+          },
+          (payload) => {
+            setTodos((current) =>
+              current.map((todo) =>
+                todo.id === payload.new.id ? (payload.new as Todo) : todo
+              )
+            )
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'todos',
+          },
+          (payload) => {
+            setTodos((current) =>
+              current.filter((todo) => todo.id !== payload.old.id)
+            )
+          }
+        )
+        .subscribe()
+
+      channelRef.current = channel
+    }
+
+    setupSubscription()
+
+    return () => {
+      cancelled = true
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current)
+      }
+    }
+  }, []) // Empty deps - subscribe once on mount
 
   const addTodo = async (e: React.FormEvent) => {
     e.preventDefault()
