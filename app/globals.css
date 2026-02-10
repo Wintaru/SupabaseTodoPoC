@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Form inputs with dark mode support */
+  input[type='text'],
+  input[type='email'],
+  input[type='password'],
+  input[type='number'],
+  input[type='search'],
+  input[type='tel'],
+  input[type='url'],
+  textarea,
+  select {
+    @apply text-gray-900 bg-white border-gray-300;
+    @apply dark:text-gray-100 dark:bg-gray-800 dark:border-gray-600;
+  }
+
+  /* Placeholders */
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-gray-400 dark:text-gray-500;
+  }
+
+  /* Headings */
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-gray-900 dark:text-gray-100;
+  }
+
+  /* Paragraphs */
+  p {
+    @apply text-gray-700 dark:text-gray-300;
+  }
+
+  /* Body background */
+  body {
+    @apply bg-gray-50 text-gray-900;
+    @apply dark:bg-gray-900 dark:text-gray-100;
+  }
+}
