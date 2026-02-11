@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { apiFetch } from '@/lib/fetch'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { Attachment } from '@/lib/types'
 
@@ -32,6 +33,7 @@ export default function AttachmentSection({ todoId }: AttachmentSectionProps) {
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const confirm = useConfirm()
 
   // Fetch attachments and set up realtime subscription
   useEffect(() => {
@@ -157,7 +159,8 @@ export default function AttachmentSection({ todoId }: AttachmentSectionProps) {
   }
 
   const handleDelete = async (attachmentId: string) => {
-    if (!confirm('Delete this attachment?')) return
+    const confirmed = await confirm('Delete this attachment?')
+    if (!confirmed) return
 
     try {
       const response = await apiFetch(

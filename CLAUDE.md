@@ -118,9 +118,9 @@ className="hover:bg-gray-100 dark:hover:bg-gray-700"
 - Show both the migration SQL and how to use it in code
 - Always regenerate types after schema changes
 
-## Architecture Preferences
+## Development Principles
 
-### Keep It Simple
+### KISS (Keep It Simple)
 
 **This project prioritizes:**
 - ✅ Direct Supabase usage in API routes
@@ -128,6 +128,35 @@ className="hover:bg-gray-100 dark:hover:bg-gray-700"
 - ✅ Practical demonstrations
 - ❌ NOT complex layering (services, repositories, etc.)
 - ❌ NOT over-engineered abstractions
+
+Prefer the simplest solution that works. Avoid premature abstraction — wait until a pattern repeats before extracting it. Complexity should be justified by a concrete requirement, not a hypothetical one.
+
+### DRY (Don't Repeat Yourself)
+
+- Extract shared logic into reusable components, hooks, or utilities when the same pattern appears in **two or more** places
+- Shared UI behaviors (e.g., confirmation dialogs, error handling) should live in `components/ui/` and be accessed via hooks or context providers
+- Cross-cutting concerns (auth, API fetching) belong in centralized wrappers (`lib/fetch.ts`, middleware)
+- Global styles go in `app/globals.css` using `@layer base` — don't repeat the same Tailwind classes across multiple components
+- **Balance DRY with KISS:** a small amount of duplication is better than a premature or unclear abstraction
+
+### iDesign Principles (Adapted for PoC)
+
+Apply iDesign thinking where it adds clarity, but keep it proportional to this project's scope:
+
+- **Separation of concerns:** Each file/component should have one clear responsibility. API routes handle HTTP. Components handle rendering. Hooks handle shared stateful logic.
+- **Volatility-based decomposition:** Group code by what changes together, not by technical layer. A feature's component, hook, and tests should be easy to find and modify as a unit.
+- **Contracts at boundaries:** API routes define clear request/response contracts. TypeScript interfaces enforce shapes at component boundaries. Auto-generated Supabase types serve as the database contract.
+- **Avoid layering for layering's sake:** In this PoC, don't introduce service/repository layers just for structure. Direct Supabase calls in API routes are fine.
+
+### Always Add Tests
+
+- **Every new feature or component must include tests.** No feature is complete without them.
+- **Every bug fix should include a regression test** that would have caught the bug.
+- **Test behavior, not implementation.** Tests should verify what the user experiences (rendered output, API responses), not internal function calls or state shapes.
+- **Update existing tests** when modifying behavior — stale tests are worse than no tests.
+- **Shared components** (like `ConfirmDialog`) should be tested through the components that use them, not in isolation, unless the shared component has complex standalone logic.
+
+## Architecture Preferences
 
 ### Centralize Cross-Cutting Concerns
 
@@ -386,6 +415,9 @@ Get keys by running: `supabase status`
 5. **Keep it simple** - Don't over-engineer for this PoC
 6. **Centralize cross-cutting concerns** - Use `apiFetch` instead of raw `fetch`, handle auth redirects in one place
 7. **Always plan for real-time** - New tables need Realtime publication + `REPLICA IDENTITY FULL`
+8. **DRY through shared components** - Reusable UI behaviors (e.g., `ConfirmDialog`) live in `components/ui/` with context providers and hooks
+9. **Tests are not optional** - Every feature, bug fix, and behavioral change must include corresponding tests
+10. **Separate concerns, not layers** - Organize by responsibility and volatility, not by arbitrary technical layers
 
 ---
 

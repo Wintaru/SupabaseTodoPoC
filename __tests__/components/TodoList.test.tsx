@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import userEvent from '@testing-library/user-event'
 import TodoList from '@/components/todos/TodoList'
+import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialog'
 import type { Todo } from '@/lib/types'
 
 // Mock fetch
@@ -231,19 +232,27 @@ describe('TodoList', () => {
 
   it('should delete todo with confirmation', async () => {
     const user = userEvent.setup()
-    window.confirm = jest.fn(() => true)
 
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
     })
 
-    render(<TodoList initialTodos={mockTodos} />)
+    render(
+      <ConfirmDialogProvider>
+        <TodoList initialTodos={mockTodos} />
+      </ConfirmDialogProvider>
+    )
 
     const deleteButtons = screen.getAllByRole('button', { name: /delete/i })
     await user.click(deleteButtons[0])
 
+    // Confirm dialog should appear
+    expect(screen.getByText('Are you sure you want to delete this todo?')).toBeInTheDocument()
+
+    // Click confirm
+    await user.click(screen.getByRole('button', { name: /confirm/i }))
+
     await waitFor(() => {
-      expect(window.confirm).toHaveBeenCalledWith('Are you sure you want to delete this todo?')
       expect(global.fetch).toHaveBeenCalledWith('/api/todos/1', {
         method: 'DELETE',
       })
@@ -257,14 +266,22 @@ describe('TodoList', () => {
 
   it('should not delete todo if confirmation cancelled', async () => {
     const user = userEvent.setup()
-    window.confirm = jest.fn(() => false)
 
-    render(<TodoList initialTodos={mockTodos} />)
+    render(
+      <ConfirmDialogProvider>
+        <TodoList initialTodos={mockTodos} />
+      </ConfirmDialogProvider>
+    )
 
     const deleteButtons = screen.getAllByRole('button', { name: /delete/i })
     await user.click(deleteButtons[0])
 
-    expect(window.confirm).toHaveBeenCalled()
+    // Confirm dialog should appear
+    expect(screen.getByText('Are you sure you want to delete this todo?')).toBeInTheDocument()
+
+    // Click cancel
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
+
     expect(global.fetch).not.toHaveBeenCalled()
     expect(screen.getByText('Test Todo 1')).toBeInTheDocument()
   })

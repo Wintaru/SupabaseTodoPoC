@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import userEvent from '@testing-library/user-event'
 import AttachmentSection from '@/components/todos/AttachmentSection'
+import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialog'
 
 // Mock fetch
 global.fetch = jest.fn()
@@ -201,14 +202,17 @@ describe('AttachmentSection', () => {
 
   it('should delete an attachment with confirmation', async () => {
     const user = userEvent.setup()
-    window.confirm = jest.fn(() => true)
 
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => [mockAttachments[0]],
     })
 
-    render(<AttachmentSection todoId={TEST_TODO_ID} />)
+    render(
+      <ConfirmDialogProvider>
+        <AttachmentSection todoId={TEST_TODO_ID} />
+      </ConfirmDialogProvider>
+    )
 
     await waitFor(() => {
       expect(screen.getByText('photo.jpg')).toBeInTheDocument()
@@ -224,22 +228,30 @@ describe('AttachmentSection', () => {
     const deleteButton = screen.getByTitle('Delete attachment')
     await user.click(deleteButton)
 
+    // Confirm dialog should appear
+    expect(screen.getByText('Delete this attachment?')).toBeInTheDocument()
+
+    // Click confirm
+    await user.click(screen.getByRole('button', { name: /confirm/i }))
+
     await waitFor(() => {
-      expect(window.confirm).toHaveBeenCalledWith('Delete this attachment?')
       expect(screen.queryByText('photo.jpg')).not.toBeInTheDocument()
     })
   })
 
   it('should not delete if confirmation is cancelled', async () => {
     const user = userEvent.setup()
-    window.confirm = jest.fn(() => false)
 
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => [mockAttachments[0]],
     })
 
-    render(<AttachmentSection todoId={TEST_TODO_ID} />)
+    render(
+      <ConfirmDialogProvider>
+        <AttachmentSection todoId={TEST_TODO_ID} />
+      </ConfirmDialogProvider>
+    )
 
     await waitFor(() => {
       expect(screen.getByText('photo.jpg')).toBeInTheDocument()
@@ -247,6 +259,12 @@ describe('AttachmentSection', () => {
 
     const deleteButton = screen.getByTitle('Delete attachment')
     await user.click(deleteButton)
+
+    // Confirm dialog should appear
+    expect(screen.getByText('Delete this attachment?')).toBeInTheDocument()
+
+    // Click cancel
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
 
     expect(screen.getByText('photo.jpg')).toBeInTheDocument()
     // Fetch should only have been called once (for initial load)

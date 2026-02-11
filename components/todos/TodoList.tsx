@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { apiFetch } from '@/lib/fetch'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { Todo } from '@/lib/types'
 import AttachmentSection from './AttachmentSection'
@@ -18,6 +19,7 @@ export default function TodoList({ initialTodos }: TodoListProps) {
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [isLoading, setIsLoading] = useState(false)
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const confirm = useConfirm()
 
   // Set up real-time subscription for todos
   // IMPORTANT: We must wait for the auth session to be ready before subscribing.
@@ -149,7 +151,8 @@ export default function TodoList({ initialTodos }: TodoListProps) {
   }
 
   const deleteTodo = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this todo?')) return
+    const confirmed = await confirm('Are you sure you want to delete this todo?')
+    if (!confirmed) return
 
     try {
       const response = await apiFetch(`/api/todos/${id}`, {
