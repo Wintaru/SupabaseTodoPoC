@@ -225,6 +225,48 @@ describe('/api/todos/[id]', () => {
       })
     })
 
+    it('should update due_date', async () => {
+      mockSupabase.single.mockResolvedValue({
+        data: { id: 'test-id-123', due_date: '2026-03-15T00:00:00Z' },
+        error: null,
+      })
+
+      const request = new Request('http://localhost:3000/api/todos/test-id-123', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          due_date: '2026-03-15T00:00:00Z',
+        }),
+      })
+
+      await PATCH(request, mockContext)
+
+      expect(mockSupabase.update).toHaveBeenCalledWith({
+        due_date: '2026-03-15T00:00:00Z',
+      })
+    })
+
+    it('should clear due_date when set to null', async () => {
+      mockSupabase.single.mockResolvedValue({
+        data: { id: 'test-id-123', due_date: null },
+        error: null,
+      })
+
+      const request = new Request('http://localhost:3000/api/todos/test-id-123', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          due_date: null,
+        }),
+      })
+
+      await PATCH(request, mockContext)
+
+      expect(mockSupabase.update).toHaveBeenCalledWith({
+        due_date: null,
+      })
+    })
+
     it('should handle database errors', async () => {
       mockSupabase.single.mockResolvedValue({
         data: null,

@@ -118,6 +118,7 @@ describe('/api/todos', () => {
         description: 'New Description',
         is_completed: false,
         priority: 'high',
+        due_date: null,
         user_id: TEST_USER_ID,
       })
       expect(data).toEqual(todoWithCategories)
@@ -193,6 +194,7 @@ describe('/api/todos', () => {
         description: null,
         is_completed: false,
         priority: 'medium',
+        due_date: null,
         user_id: TEST_USER_ID,
       })
     })
@@ -218,8 +220,48 @@ describe('/api/todos', () => {
         description: 'Trimmed Description',
         is_completed: false,
         priority: 'medium',
+        due_date: null,
         user_id: TEST_USER_ID,
       })
+    })
+
+    it('should create a todo with a due date', async () => {
+      const newTodo = {
+        id: '1',
+        title: 'Todo with due date',
+        description: null,
+        is_completed: false,
+        priority: 'medium',
+        due_date: '2026-03-15T00:00:00Z',
+        user_id: TEST_USER_ID,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+      }
+
+      mockSupabase.single
+        .mockResolvedValueOnce({ data: newTodo, error: null })
+        .mockResolvedValueOnce({ data: { ...newTodo, todo_categories: [] }, error: null })
+
+      const request = new Request('http://localhost:3000/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Todo with due date',
+          due_date: '2026-03-15T00:00:00Z',
+        }),
+      })
+
+      const response = await POST(request)
+
+      expect(mockSupabase.insert).toHaveBeenCalledWith({
+        title: 'Todo with due date',
+        description: null,
+        is_completed: false,
+        priority: 'medium',
+        due_date: '2026-03-15T00:00:00Z',
+        user_id: TEST_USER_ID,
+      })
+      expect(response.status).toBe(201)
     })
 
     it('should handle database errors', async () => {

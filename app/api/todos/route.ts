@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       description: body.description?.trim() || null,
       is_completed: body.is_completed || false,
       priority: body.priority || 'medium',
+      due_date: body.due_date || null,
       user_id: user.id,
     }
 

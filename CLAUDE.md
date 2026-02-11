@@ -383,6 +383,10 @@ Get keys by running: `supabase status`
 
 ## Git Workflow
 
+### Commits
+
+**IMPORTANT:** Never run `git commit` directly. The user handles all commits themselves. When asked, stage the files and provide a commit message for the user to use.
+
 ### What to Commit
 
 - ✅ Migration files (`supabase/migrations/*.sql`)

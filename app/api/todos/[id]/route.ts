@@ -80,6 +80,10 @@ export async function PATCH(
       updateData.priority = body.priority
     }
 
+    if (body.due_date !== undefined) {
+      updateData.due_date = body.due_date || null
+    }
+
     const { data, error } = await supabase
       .from('todos')
       .update(updateData)

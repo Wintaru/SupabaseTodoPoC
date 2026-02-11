@@ -23,6 +23,7 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
+  const [dueDate, setDueDate] = useState('')
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -225,6 +226,7 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
           title,
           description,
           priority,
+          due_date: dueDate || null,
           category_ids: selectedCategoryIds,
         }),
       })
@@ -235,6 +237,7 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
         setTitle('')
         setDescription('')
         setPriority('medium')
+        setDueDate('')
         setSelectedCategoryIds([])
       }
     } catch (error) {
@@ -383,7 +386,7 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
             rows={3}
           />
         </div>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-3 gap-4 mb-4">
           <div>
             <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Priority
@@ -398,6 +401,18 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
               <option value="medium">Medium</option>
               <option value="high">High</option>
             </select>
+          </div>
+          <div>
+            <label htmlFor="due-date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Due Date
+            </label>
+            <input
+              type="date"
+              id="due-date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -456,6 +471,7 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
                   }`}>
                     {todo.priority}
                   </span>
+                  {todo.due_date && <DueDateBadge dueDate={todo.due_date} />}
                   {todo.todo_categories.map((tc) => (
                     <CategoryBadge
                       key={tc.category_id}
@@ -493,6 +509,48 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
         )}
       </div>
     </div>
+  )
+}
+
+function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function getDueDateStatus(dueDateStr: string): 'overdue' | 'today' | 'upcoming' {
+  // Compare YYYY-MM-DD strings to avoid UTC-vs-local timezone shifts
+  const todayStr = toLocalDateStr(new Date())
+  const dueStr = dueDateStr.slice(0, 10)
+
+  if (dueStr < todayStr) return 'overdue'
+  if (dueStr === todayStr) return 'today'
+  return 'upcoming'
+}
+
+function DueDateBadge({ dueDate }: { dueDate: string }) {
+  const status = getDueDateStatus(dueDate)
+  // Parse date parts to avoid timezone-shifted formatting
+  const [year, month, day] = dueDate.slice(0, 10).split('-')
+  const formatted = new Date(Number(year), Number(month) - 1, Number(day)).toLocaleDateString()
+
+  const styles = {
+    overdue: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+    today: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+    upcoming: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+  }
+
+  const labels = {
+    overdue: `Overdue: ${formatted}`,
+    today: 'Due today',
+    upcoming: `Due: ${formatted}`,
+  }
+
+  return (
+    <span className={`px-2 py-0.5 text-xs font-medium rounded ${styles[status]}`}>
+      {labels[status]}
+    </span>
   )
 }
 

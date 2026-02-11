@@ -46,6 +46,13 @@ jest.mock('@/lib/supabase/client', () => ({
   })),
 }))
 
+function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 describe('TodoList', () => {
   const mockCategories: Category[] = [
     {
@@ -64,6 +71,7 @@ describe('TodoList', () => {
       description: 'Description 1',
       is_completed: false,
       priority: 'high',
+      due_date: null,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
       user_id: 'test-user-id',
@@ -75,6 +83,7 @@ describe('TodoList', () => {
       description: null,
       is_completed: true,
       priority: 'low',
+      due_date: null,
       created_at: '2024-01-02T00:00:00Z',
       updated_at: '2024-01-02T00:00:00Z',
       user_id: 'test-user-id',
@@ -126,6 +135,7 @@ describe('TodoList', () => {
       description: 'New Description',
       is_completed: false,
       priority: 'medium',
+      due_date: null,
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
@@ -164,6 +174,7 @@ describe('TodoList', () => {
         title: 'New Todo',
         description: 'New Description',
         priority: 'medium',
+        due_date: null,
         category_ids: [],
       }),
     })
@@ -188,6 +199,7 @@ describe('TodoList', () => {
       description: 'New Description',
       is_completed: false,
       priority: 'high',
+      due_date: null,
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
@@ -375,6 +387,153 @@ describe('TodoList', () => {
     expect(options[0]).toHaveValue('low')
     expect(options[1]).toHaveValue('medium')
     expect(options[2]).toHaveValue('high')
+  })
+
+  it('should render the due date input in the form', () => {
+    render(<TodoList initialTodos={[]} initialCategories={mockCategories} />)
+
+    const dueDateInput = screen.getByLabelText(/due date/i)
+    expect(dueDateInput).toBeInTheDocument()
+    expect(dueDateInput).toHaveAttribute('type', 'date')
+  })
+
+  it('should submit a todo with a due date', async () => {
+    const user = userEvent.setup()
+    const newTodo: TodoWithCategories = {
+      id: '3',
+      title: 'Todo with date',
+      description: null,
+      is_completed: false,
+      priority: 'medium',
+      due_date: '2026-03-15',
+      created_at: '2024-01-03T00:00:00Z',
+      updated_at: '2024-01-03T00:00:00Z',
+      user_id: 'test-user-id',
+      todo_categories: [],
+    }
+
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => newTodo,
+    })
+
+    render(<TodoList initialTodos={[]} initialCategories={mockCategories} />)
+
+    const titleInput = screen.getByLabelText(/title/i)
+    const dueDateInput = screen.getByLabelText(/due date/i)
+
+    await user.type(titleInput, 'Todo with date')
+    fireEvent.change(dueDateInput, { target: { value: '2026-03-15' } })
+
+    const submitButton = screen.getByRole('button', { name: /add todo/i })
+    await user.click(submitButton)
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Todo with date',
+          description: '',
+          priority: 'medium',
+          due_date: '2026-03-15',
+          category_ids: [],
+        }),
+      })
+    })
+  })
+
+  it('should display overdue badge for past due dates', () => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = toLocalDateStr(yesterday)
+
+    const todosWithDueDate: TodoWithCategories[] = [
+      {
+        ...mockTodos[0],
+        due_date: yesterdayStr,
+      },
+    ]
+
+    render(<TodoList initialTodos={todosWithDueDate} initialCategories={mockCategories} />)
+
+    expect(screen.getByText(/overdue/i)).toBeInTheDocument()
+  })
+
+  it('should display due today badge for todos due today', () => {
+    const todayStr = toLocalDateStr(new Date())
+
+    const todosWithDueDate: TodoWithCategories[] = [
+      {
+        ...mockTodos[0],
+        due_date: todayStr,
+      },
+    ]
+
+    render(<TodoList initialTodos={todosWithDueDate} initialCategories={mockCategories} />)
+
+    expect(screen.getByText('Due today')).toBeInTheDocument()
+  })
+
+  it('should display upcoming badge for future due dates', () => {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const tomorrowStr = toLocalDateStr(tomorrow)
+
+    const todosWithDueDate: TodoWithCategories[] = [
+      {
+        ...mockTodos[0],
+        due_date: tomorrowStr,
+      },
+    ]
+
+    render(<TodoList initialTodos={todosWithDueDate} initialCategories={mockCategories} />)
+
+    expect(screen.getByText(/due:/i)).toBeInTheDocument()
+  })
+
+  it('should not display due date badge when due_date is null', () => {
+    render(<TodoList initialTodos={mockTodos} initialCategories={mockCategories} />)
+
+    expect(screen.queryByText(/overdue/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/due today/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/due:/i)).not.toBeInTheDocument()
+  })
+
+  it('should clear due date input after adding todo', async () => {
+    const user = userEvent.setup()
+    const newTodo: TodoWithCategories = {
+      id: '3',
+      title: 'New Todo',
+      description: null,
+      is_completed: false,
+      priority: 'medium',
+      due_date: '2026-03-15',
+      created_at: '2024-01-03T00:00:00Z',
+      updated_at: '2024-01-03T00:00:00Z',
+      user_id: 'test-user-id',
+      todo_categories: [],
+    }
+
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => newTodo,
+    })
+
+    render(<TodoList initialTodos={[]} initialCategories={mockCategories} />)
+
+    const titleInput = screen.getByLabelText(/title/i)
+    const dueDateInput = screen.getByLabelText(/due date/i) as HTMLInputElement
+
+    await user.type(titleInput, 'New Todo')
+    fireEvent.change(dueDateInput, { target: { value: '2026-03-15' } })
+
+    const submitButton = screen.getByRole('button', { name: /add todo/i })
+    await user.click(submitButton)
+
+    await waitFor(() => {
+      expect(dueDateInput.value).toBe('')
+    })
   })
 })
 
