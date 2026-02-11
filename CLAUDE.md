@@ -129,6 +129,26 @@ className="hover:bg-gray-100 dark:hover:bg-gray-700"
 - ❌ NOT complex layering (services, repositories, etc.)
 - ❌ NOT over-engineered abstractions
 
+### Centralize Cross-Cutting Concerns
+
+**Rule:** When a behavior applies to all API calls or all components, centralize it rather than repeating inline checks everywhere.
+
+**Example — Auth redirect on 401:**
+- `lib/fetch.ts` exports `apiFetch`, a wrapper around `fetch` that intercepts 401 responses and redirects to `/login`
+- Client components must use `apiFetch` instead of raw `fetch` for all `/api/*` calls
+- The middleware (`lib/supabase/proxy.ts`) returns 401 JSON for API routes (instead of redirecting to login HTML)
+
+```typescript
+import { apiFetch } from '@/lib/fetch'
+
+// Good — 401 handling is automatic
+const response = await apiFetch('/api/todos', { method: 'POST', ... })
+
+// Bad — duplicates 401 logic in every call site
+const response = await fetch('/api/todos', { method: 'POST', ... })
+if (response.status === 401) { window.location.href = '/login'; return }
+```
+
 ### Type Safety
 
 - Always use auto-generated types from Supabase
@@ -142,9 +162,10 @@ className="hover:bg-gray-100 dark:hover:bg-gray-700"
 1. **Schema Changes:**
    - Create migration: `supabase migration new feature_name`
    - Write SQL in the migration file
-   - Test locally: `supabase db reset`
+   - Apply migration: `supabase migration up` (preserves existing data)
    - Regenerate types
    - Update components/API routes to use new fields
+   - **Never use `supabase db reset` without asking first** — it wipes all data
 
 2. **UI Changes:**
    - Check if styles should be global (in `globals.css`)
@@ -236,6 +257,18 @@ create policy "Allow public access"
 - **Add indexes** for frequently queried columns
 - **Version control** all migrations in git
 
+### Real-Time Subscriptions (RTS)
+
+**Rule:** Always assume new features and tables need real-time support. Every new table should be configured for Realtime by default.
+
+**Required steps for each new table:**
+1. Add the table to the Realtime publication: `ALTER PUBLICATION supabase_realtime ADD TABLE public.<table_name>;`
+2. Set `REPLICA IDENTITY FULL` so WALRUS can evaluate RLS policies: `ALTER TABLE public.<table_name> REPLICA IDENTITY FULL;`
+
+**Why REPLICA IDENTITY FULL?** Supabase Realtime's WALRUS system impersonates subscribers and runs SELECT queries to verify RLS policies. Without FULL replica identity, only the primary key is in the WAL, and WALRUS can't properly evaluate RLS for INSERT/UPDATE events.
+
+**Client-side:** When subscribing to Realtime channels, wait for the auth session to be ready before subscribing. Set the Realtime auth token explicitly with `supabase.realtime.setAuth(session.access_token)` so WALRUS can evaluate RLS with the correct user identity.
+
 ### Database Design
 
 - Use `uuid` for primary keys
@@ -246,15 +279,15 @@ create policy "Allow public access"
 
 ## Authentication
 
-**Current State:** Authentication redirect is **disabled** for PoC.
+**Current State:** Authentication is **enabled**. The middleware (`lib/supabase/proxy.ts`) enforces auth:
+- Page navigations by unauthenticated users redirect to `/login`
+- API routes return 401 JSON (so client-side `apiFetch` can redirect)
+- `/login`, `/signup`, and `/auth` paths are excluded from auth checks
 
-**Location:** `lib/supabase/proxy.ts` (lines 40-53 are commented out)
-
-**When implementing authentication:**
-1. Uncomment the redirect logic in `proxy.ts`
-2. Create login/signup pages
-3. Update RLS policies to use `auth.uid()`
-4. Add `user_id` foreign keys to tables
+**Key files:**
+- `lib/supabase/proxy.ts` — Middleware session validation + auth redirects
+- `lib/fetch.ts` — Client-side `apiFetch` wrapper that redirects to `/login` on 401
+- `app/login/page.tsx`, `app/signup/page.tsx` — Auth pages
 
 ## Testing
 
@@ -278,12 +311,13 @@ npm run test:coverage # With coverage report
 ### Adding a New Entity
 
 Follow the guide in `docs/NEW_PROJECT_GUIDE.md`:
-1. Create migration
-2. Apply migration (`supabase db reset`)
+1. Create migration (include RLS policies, Realtime publication, and `REPLICA IDENTITY FULL`)
+2. Apply migration (`supabase migration up` — preserves data; ask before using `db reset`)
 3. Regenerate types
 4. Create API routes
-5. Create UI components
-6. Test end-to-end
+5. Create UI components (use `apiFetch` for all API calls)
+6. Add real-time subscriptions if applicable
+7. Test end-to-end
 
 ### Debugging
 
@@ -350,9 +384,11 @@ Get keys by running: `supabase status`
 3. **Type generation is automatic** - Always regenerate after schema changes
 4. **RLS is essential** - Security should be at the database level
 5. **Keep it simple** - Don't over-engineer for this PoC
+6. **Centralize cross-cutting concerns** - Use `apiFetch` instead of raw `fetch`, handle auth redirects in one place
+7. **Always plan for real-time** - New tables need Realtime publication + `REPLICA IDENTITY FULL`
 
 ---
 
-**Last Updated:** 2026-02-10
+**Last Updated:** 2026-02-11
 
 **Note:** This file should be updated whenever new conventions or patterns are established in the project.

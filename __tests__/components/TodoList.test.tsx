@@ -7,6 +7,13 @@ import type { Todo } from '@/lib/types'
 // Mock fetch
 global.fetch = jest.fn()
 
+// Mock AttachmentSection to avoid interference with fetch mocks
+jest.mock('@/components/todos/AttachmentSection', () => {
+  return function MockAttachmentSection() {
+    return <div data-testid="attachment-section" />
+  }
+})
+
 // Mock Supabase client
 jest.mock('@/lib/supabase/client', () => ({
   createClient: jest.fn(() => ({

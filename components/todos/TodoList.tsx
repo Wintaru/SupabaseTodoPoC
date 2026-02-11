@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { apiFetch } from '@/lib/fetch'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { Todo } from '@/lib/types'
+import AttachmentSection from './AttachmentSection'
 
 interface TodoListProps {
   initialTodos: Todo[]
@@ -109,7 +111,7 @@ export default function TodoList({ initialTodos }: TodoListProps) {
 
     setIsLoading(true)
     try {
-      const response = await fetch('/api/todos', {
+      const response = await apiFetch('/api/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, description, priority }),
@@ -131,7 +133,7 @@ export default function TodoList({ initialTodos }: TodoListProps) {
 
   const toggleTodo = async (id: string, is_completed: boolean) => {
     try {
-      const response = await fetch(`/api/todos/${id}`, {
+      const response = await apiFetch(`/api/todos/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_completed: !is_completed }),
@@ -150,7 +152,7 @@ export default function TodoList({ initialTodos }: TodoListProps) {
     if (!confirm('Are you sure you want to delete this todo?')) return
 
     try {
-      const response = await fetch(`/api/todos/${id}`, {
+      const response = await apiFetch(`/api/todos/${id}`, {
         method: 'DELETE',
       })
 
@@ -253,6 +255,7 @@ export default function TodoList({ initialTodos }: TodoListProps) {
                     {todo.description}
                   </p>
                 )}
+                <AttachmentSection todoId={todo.id} />
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                   Created: {new Date(todo.created_at).toLocaleString()}
                 </p>
