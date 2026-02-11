@@ -1,269 +1,183 @@
 # Soupabase - Supabase + Next.js Proof of Concept
 
-A demonstration of Supabase integration with Next.js, focusing on database migrations, type-safe operations, and practical workflows for building full-stack applications.
+A full-stack Todo app demonstrating Supabase integration with Next.js: database migrations, type-safe operations, real-time subscriptions, authentication, and more.
 
-## What This Project Demonstrates
+## Prerequisites
 
-- **Supabase Local Development** - Complete local development environment with Docker
-- **Type-Safe Database Operations** - Auto-generated TypeScript types from database schema
-- **Migration Management** - Version-controlled SQL migrations with Supabase CLI
-- **Row Level Security (RLS)** - PostgreSQL security policies for data access control
-- **CRUD Operations** - RESTful API routes with Next.js App Router
-- **Real-Time Updates** - Automatic timestamp triggers and database constraints
-- **Schema Evolution** - Demonstrated with follow-up migration adding priority field
+You need three things installed: **Node.js**, **Docker**, and the **Supabase CLI**.
 
-## Quick Start
-
-### Prerequisites
-
-- Node.js 18+ and npm
-- Docker Desktop (running)
-- Supabase CLI: `brew install supabase/tap/supabase`
-
-### Get Started in 5 Minutes
+### Mac
 
 ```bash
-# Clone and install
+# Install Node.js (if you don't have it)
+brew install node
+
+# Install Docker Desktop
+brew install --cask docker
+
+# Install Supabase CLI
+brew install supabase/tap/supabase
+```
+
+Open **Docker Desktop** once after installing to finish setup, then make sure it's running.
+
+### Linux
+
+```bash
+# Install Node.js (using NodeSource - Ubuntu/Debian)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install Docker
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose-v2
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+# Log out and back in for the group change to take effect
+
+# Install Supabase CLI
+brew install supabase/tap/supabase
+# Or without Homebrew:
+# curl -fsSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | sh
+```
+
+### Windows
+
+```powershell
+# Install Node.js - download from https://nodejs.org/ (LTS version)
+# Or with winget:
+winget install OpenJS.NodeJS.LTS
+
+# Install Docker Desktop - download from https://docs.docker.com/desktop/install/windows-install/
+# Or with winget:
+winget install Docker.DockerDesktop
+
+# Install Supabase CLI with npm (easiest on Windows)
+npm install -g supabase
+```
+
+Open **Docker Desktop** once after installing to finish setup, then make sure it's running.
+
+> **Windows note:** Use PowerShell or Git Bash for all commands below. If using Git Bash, the commands are the same as Mac/Linux.
+
+## Getting Started
+
+```bash
+# 1. Clone and install dependencies
 git clone <your-repo-url>
 cd Soupabase
 npm install
 
-# Start Supabase (Docker must be running)
+# 2. Start Supabase (Docker must be running)
 supabase start
+```
 
-# Apply migrations
-supabase db reset
+The `supabase start` command will print credentials including an **API URL** and **publishable key**. You need these for the next step.
 
-# Generate TypeScript types
-supabase gen types typescript --local > lib/types/database.types.ts
+```bash
+# 3. Create your .env.local file
+```
 
-# Start development server
+Create a file called `.env.local` in the project root with these two lines:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable key from supabase start output>
+```
+
+You can re-check the key anytime with `supabase status`.
+
+```bash
+# 4. Start the dev server
 npm run dev
 ```
 
-Visit:
-- **App**: http://localhost:3000
-- **Supabase Studio**: http://127.0.0.1:54323
-- **API**: http://localhost:3000/api/todos
+Open **http://localhost:3000** - you're up and running.
+
+## Useful Links (Local)
+
+| Service | URL |
+|---------|-----|
+| App | http://localhost:3000 |
+| Supabase Studio (DB admin) | http://127.0.0.1:54323 |
+| Mailpit (test emails) | http://127.0.0.1:54324 |
+| Supabase API | http://127.0.0.1:54321 |
+
+## Stopping / Restarting
+
+```bash
+# Stop Supabase (preserves data)
+supabase stop
+
+# Stop and delete all local data
+supabase stop --no-backup
+
+# Restart everything
+supabase start
+npm run dev
+```
+
+## Common Commands
+
+```bash
+# Run tests
+npm test
+
+# Build for production
+npm run build
+
+# Regenerate TypeScript types after schema changes
+supabase gen types typescript --local > lib/types/database.types.ts
+
+# Create a new database migration
+supabase migration new my_feature_name
+
+# Apply migrations (preserves data)
+supabase migration up
+
+# Reset database (wipes data, re-applies all migrations)
+supabase db reset
+
+# Check Supabase status and credentials
+supabase status
+```
 
 ## Project Structure
 
 ```
-soupabase/
-├── app/                      # Next.js App Router
-│   ├── api/todos/           # RESTful API endpoints
-│   └── todos/               # Todo list page
-├── components/              # React components
-│   └── todos/               # Todo UI components
+Soupabase/
+├── app/                        # Next.js App Router
+│   ├── api/                    # API route handlers
+│   ├── login/, signup/         # Auth pages
+│   └── todos/                  # Todo list page
+├── components/                 # React components
+│   ├── todos/                  # Todo-specific components
+│   └── ui/                     # Shared UI (modals, etc.)
 ├── lib/
-│   ├── supabase/            # Supabase client configuration
-│   └── types/               # TypeScript type definitions
+│   ├── accessors/              # Database query functions
+│   ├── supabase/               # Supabase client setup
+│   └── types/                  # Auto-generated DB types
 ├── supabase/
-│   ├── migrations/          # Database migrations (version controlled)
-│   └── config.toml          # Supabase configuration
-└── docs/                    # Comprehensive documentation
-    ├── SETUP.md             # Step-by-step setup guide
-    ├── MIGRATIONS.md        # Migration patterns and best practices
-    └── NEW_PROJECT_GUIDE.md # Template for adding new features
-```
-
-## Key Features
-
-### Database Migrations
-
-Version-controlled SQL files that track schema changes:
-
-```bash
-# Create a new migration
-supabase migration new add_feature
-
-# Test locally
-supabase db reset
-
-# Deploy to production
-supabase db push
-```
-
-See [docs/MIGRATIONS.md](docs/MIGRATIONS.md) for detailed migration patterns.
-
-### Type-Safe Database Operations
-
-Automatically generated TypeScript types ensure type safety:
-
-```typescript
-import type { Todo, TodoInsert, TodoUpdate } from '@/lib/types'
-
-const { data, error } = await supabase
-  .from('todos')
-  .select('*')
-  .returns<Todo[]>()
-```
-
-### Row Level Security
-
-PostgreSQL RLS policies control data access:
-
-```sql
-create policy "Users can view their own todos"
-  on public.todos for select
-  using (auth.uid() = user_id);
-```
-
-### API Routes Pattern
-
-RESTful endpoints following Next.js conventions:
-
-- `GET /api/todos` - List all todos
-- `POST /api/todos` - Create new todo
-- `GET /api/todos/[id]` - Get specific todo
-- `PATCH /api/todos/[id]` - Update todo
-- `DELETE /api/todos/[id]` - Delete todo
-
-## Documentation
-
-This project includes comprehensive documentation:
-
-- **[SETUP.md](docs/SETUP.md)** - Complete setup guide from scratch
-- **[MIGRATIONS.md](docs/MIGRATIONS.md)** - Migration workflows and patterns
-- **[NEW_PROJECT_GUIDE.md](docs/NEW_PROJECT_GUIDE.md)** - Template for adding new entities
-
-## Example: Todo CRUD
-
-The project demonstrates a complete Todo application with:
-
-- ✅ Create todos with title and description
-- ✅ Mark todos as complete/incomplete
-- ✅ Delete todos
-- ✅ Automatic timestamps (created_at, updated_at)
-- ✅ Priority levels (low, medium, high) - added via migration
-- ✅ Type-safe operations throughout
-
-## Migrations Timeline
-
-This project demonstrates schema evolution:
-
-1. **Initial Migration** (`20260210170613_create_todos_table.sql`)
-   - Created todos table
-   - Added RLS policies
-   - Created updated_at trigger
-   - Added indexes
-
-2. **Follow-up Migration** (`20260210171835_add_priority_to_todos.sql`)
-   - Added priority column with CHECK constraint
-   - Created priority index
-   - Demonstrates schema evolution pattern
-
-## Environment Variables
-
-Create `.env.local`:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-from-supabase-start
-```
-
-Get your local keys by running `supabase status`.
-
-## Useful Commands
-
-```bash
-# Supabase
-supabase start              # Start local Supabase
-supabase stop               # Stop local Supabase
-supabase status             # Check status and get credentials
-supabase db reset           # Reset database and apply migrations
-supabase migration new NAME # Create new migration
-supabase gen types          # Generate TypeScript types
-
-# Next.js
-npm run dev                 # Start development server
-npm run build               # Build for production
-npm run start               # Start production server
-```
-
-## Testing the API
-
-```bash
-# List all todos
-curl http://localhost:3000/api/todos
-
-# Create a todo
-curl -X POST http://localhost:3000/api/todos \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Test Todo","description":"Testing"}'
-
-# Update a todo
-curl -X PATCH http://localhost:3000/api/todos/{id} \
-  -H "Content-Type: application/json" \
-  -d '{"is_completed":true}'
-
-# Delete a todo
-curl -X DELETE http://localhost:3000/api/todos/{id}
-```
-
-## Production Deployment
-
-For production deployment to Supabase Cloud:
-
-```bash
-# Link to your Supabase project
-supabase link --project-ref your-project-ref
-
-# Push migrations to production
-supabase db push
-
-# Deploy Next.js app (Vercel, etc.)
-npm run build
+│   ├── migrations/             # SQL migration files
+│   └── config.toml             # Supabase config
+├── __tests__/                  # Test files
+└── docs/                       # Detailed guides
 ```
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
-- **Database**: PostgreSQL (via Supabase)
-- **ORM/Client**: Supabase JavaScript Client
-- **Language**: TypeScript (strict mode)
-- **Styling**: Tailwind CSS
-- **Development**: Docker, Supabase CLI
+- **Next.js 15** (App Router) + **React 18** + **TypeScript**
+- **Supabase** (PostgreSQL, Auth, Realtime)
+- **Tailwind CSS** (with dark mode support)
+- **Jest** + **React Testing Library**
 
-## Learning Resources
+## Further Reading
 
-- [Supabase Documentation](https://supabase.com/docs)
-- [Next.js App Router](https://nextjs.org/docs/app)
-- [PostgreSQL Docs](https://www.postgresql.org/docs/)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-
-## Architecture Principles
-
-This project follows these principles:
-
-1. **Type Safety** - Leverage TypeScript throughout
-2. **Schema First** - Database migrations drive type generation
-3. **Security by Default** - Always use RLS policies
-4. **Local Development** - Develop and test locally before deploying
-5. **Version Control** - Track schema changes in migrations
-6. **Documentation** - Comprehensive guides for replication
-
-## Next Steps
-
-To extend this project:
-
-1. Add authentication with Supabase Auth
-2. Implement user-specific RLS policies
-3. Add real-time subscriptions for live updates
-4. Create additional entities (Projects, Categories, etc.)
-5. Add pagination to list endpoints
-6. Implement full-text search
-7. Add file storage with Supabase Storage
-
-Follow [docs/NEW_PROJECT_GUIDE.md](docs/NEW_PROJECT_GUIDE.md) for step-by-step instructions.
+- [docs/SETUP.md](docs/SETUP.md) - Detailed setup guide
+- [docs/MIGRATIONS.md](docs/MIGRATIONS.md) - Migration patterns
+- [docs/NEW_PROJECT_GUIDE.md](docs/NEW_PROJECT_GUIDE.md) - Adding new features
 
 ## License
 
 MIT
-
-## Questions?
-
-- Check the [docs/](docs/) folder for detailed guides
-- Review the migration files for SQL examples
-- Examine the API routes for implementation patterns
-- Open an issue for questions or improvements

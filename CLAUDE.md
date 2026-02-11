@@ -276,6 +276,19 @@ export async function GET(request: Request) {
 
 **Do this BEFORE staging changes for commit.** This prevents broken code from being committed.
 
+### Keeping the README Up to Date
+
+**Rule:** Any time you make a change that could affect how someone sets up or runs the project, update `README.md` to reflect it. This includes but is not limited to:
+
+- Adding, renaming, or removing **environment variables**
+- Changing **prerequisites** (new tools, minimum versions)
+- Modifying **Supabase config** (ports, project ID, new services)
+- Adding or changing **npm scripts** or startup commands
+- Altering the **project structure** in a way that affects the documented tree
+- Changing the **tech stack** (swapping libraries, upgrading major versions)
+
+Also fix any information in the README you notice is **outdated or incorrect** while working, even if the current task didn't cause the drift.
+
 ## Code Style
 
 ### TypeScript
