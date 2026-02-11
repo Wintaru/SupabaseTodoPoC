@@ -40,6 +40,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          tenant_id: string | null
           user_id: string
         }
         Insert: {
@@ -47,6 +48,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          tenant_id?: string | null
           user_id: string
         }
         Update: {
@@ -54,6 +56,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          tenant_id?: string | null
           user_id?: string
         }
         Relationships: []
@@ -66,6 +69,7 @@ export type Database = {
           file_path: string
           file_size: number
           id: string
+          tenant_id: string | null
           todo_id: string
           user_id: string
         }
@@ -76,6 +80,7 @@ export type Database = {
           file_path: string
           file_size: number
           id?: string
+          tenant_id?: string | null
           todo_id: string
           user_id: string
         }
@@ -86,6 +91,7 @@ export type Database = {
           file_path?: string
           file_size?: number
           id?: string
+          tenant_id?: string | null
           todo_id?: string
           user_id?: string
         }
@@ -138,6 +144,7 @@ export type Database = {
           is_completed: boolean | null
           priority: string
           search_vector: unknown
+          tenant_id: string | null
           title: string
           updated_at: string
           user_id: string | null
@@ -150,6 +157,7 @@ export type Database = {
           is_completed?: boolean | null
           priority?: string
           search_vector?: unknown
+          tenant_id?: string | null
           title: string
           updated_at?: string
           user_id?: string | null
@@ -162,9 +170,34 @@ export type Database = {
           is_completed?: boolean | null
           priority?: string
           search_vector?: unknown
+          tenant_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          created_at: string
+          id: string
+          provider: string | null
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          provider?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          provider?: string | null
+          tenant_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -173,7 +206,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_my_tenant_id: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never

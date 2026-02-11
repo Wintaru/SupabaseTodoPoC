@@ -328,6 +328,27 @@ describe('AttachmentSection', () => {
     })
   })
 
+  it('should hide upload button and delete buttons in read-only mode', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockAttachments,
+    })
+
+    render(<AttachmentSection todoId={TEST_TODO_ID} readOnly />)
+
+    await waitFor(() => {
+      expect(screen.getByText('photo.jpg')).toBeInTheDocument()
+      expect(screen.getByText('document.pdf')).toBeInTheDocument()
+    })
+
+    // Upload button and count should not be visible
+    expect(screen.queryByText('Attach file')).not.toBeInTheDocument()
+    expect(screen.queryByText('2/5')).not.toBeInTheDocument()
+
+    // Delete buttons should not be visible
+    expect(screen.queryByTitle('Delete attachment')).not.toBeInTheDocument()
+  })
+
   it('should show error for files exceeding 10MB', async () => {
     const user = userEvent.setup()
 

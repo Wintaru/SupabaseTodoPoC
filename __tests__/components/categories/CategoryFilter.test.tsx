@@ -11,6 +11,7 @@ describe('CategoryFilter', () => {
       name: 'Work',
       color: 'blue',
       user_id: 'test-user-id',
+      tenant_id: null,
       created_at: '2024-01-01T00:00:00Z',
     },
     {
@@ -18,6 +19,7 @@ describe('CategoryFilter', () => {
       name: 'Personal',
       color: 'green',
       user_id: 'test-user-id',
+      tenant_id: null,
       created_at: '2024-01-02T00:00:00Z',
     },
     {
@@ -25,6 +27,7 @@ describe('CategoryFilter', () => {
       name: 'Urgent',
       color: 'red',
       user_id: 'test-user-id',
+      tenant_id: null,
       created_at: '2024-01-03T00:00:00Z',
     },
   ]

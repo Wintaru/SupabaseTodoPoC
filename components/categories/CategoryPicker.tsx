@@ -8,9 +8,10 @@ interface CategoryPickerProps {
   categories: Category[]
   selectedIds: string[]
   onChange: (selectedIds: string[]) => void
+  currentUserId?: string | null
 }
 
-export default function CategoryPicker({ categories, selectedIds, onChange }: CategoryPickerProps) {
+export default function CategoryPicker({ categories, selectedIds, onChange, currentUserId }: CategoryPickerProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   if (categories.length === 0) return null
@@ -21,6 +22,31 @@ export default function CategoryPicker({ categories, selectedIds, onChange }: Ca
     } else {
       onChange([...selectedIds, categoryId])
     }
+  }
+
+  const mine = currentUserId ? categories.filter(c => c.user_id === currentUserId) : categories
+  const shared = currentUserId ? categories.filter(c => c.user_id !== currentUserId) : []
+
+  const renderCategory = (category: Category) => {
+    const colors = CATEGORY_COLOR_CLASSES[category.color] || CATEGORY_COLOR_CLASSES.blue
+    const isSelected = selectedIds.includes(category.id)
+
+    return (
+      <label
+        key={category.id}
+        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+      >
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={() => toggleCategory(category.id)}
+          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+        />
+        <span className={`px-2 py-0.5 text-xs font-medium rounded ${colors.badge} ${colors.badgeDark}`}>
+          {category.name}
+        </span>
+      </label>
+    )
   }
 
   return (
@@ -38,27 +64,19 @@ export default function CategoryPicker({ categories, selectedIds, onChange }: Ca
 
       {isOpen && (
         <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
-          {categories.map((category) => {
-            const colors = CATEGORY_COLOR_CLASSES[category.color] || CATEGORY_COLOR_CLASSES.blue
-            const isSelected = selectedIds.includes(category.id)
-
-            return (
-              <label
-                key={category.id}
-                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleCategory(category.id)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <span className={`px-2 py-0.5 text-xs font-medium rounded ${colors.badge} ${colors.badgeDark}`}>
-                  {category.name}
-                </span>
-              </label>
-            )
-          })}
+          {shared.length > 0 && (
+            <>
+              <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide bg-gray-50 dark:bg-gray-750">
+                Mine
+              </div>
+              {mine.map(renderCategory)}
+              <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide bg-gray-50 dark:bg-gray-750">
+                Shared
+              </div>
+              {shared.map(renderCategory)}
+            </>
+          )}
+          {shared.length === 0 && mine.map(renderCategory)}
         </div>
       )}
     </div>

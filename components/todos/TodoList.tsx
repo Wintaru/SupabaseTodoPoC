@@ -30,6 +30,7 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<TodoWithCategories[] | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const categoriesChannelRef = useRef<RealtimeChannel | null>(null)
@@ -51,6 +52,7 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
         return
       }
 
+      setCurrentUserId(session.user.id)
       supabase.realtime.setAuth(session.access_token)
 
       // Todos channel
@@ -385,6 +387,7 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
       {/* Category Manager */}
       <CategoryManager
         categories={categories}
+        currentUserId={currentUserId}
         onCategoryCreated={(category) =>
           setCategories([...categories, category].sort((a, b) => a.name.localeCompare(b.name)))
         }
@@ -468,6 +471,7 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
               categories={categories}
               selectedIds={selectedCategoryIds}
               onChange={setSelectedCategoryIds}
+              currentUserId={currentUserId}
             />
           </div>
         </div>
@@ -535,17 +539,27 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
                 : 'No todos yet. Add one above!'}
           </p>
         ) : (
-          filteredTodos.map((todo) => (
+          filteredTodos.map((todo) => {
+            const isOwner = currentUserId != null && todo.user_id === currentUserId
+            return (
             <div
               key={todo.id}
               className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md flex items-start gap-4"
             >
-              <input
-                type="checkbox"
-                checked={todo.is_completed ?? false}
-                onChange={() => toggleTodo(todo.id, todo.is_completed ?? false)}
-                className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
+              {isOwner ? (
+                <input
+                  type="checkbox"
+                  checked={todo.is_completed ?? false}
+                  onChange={() => toggleTodo(todo.id, todo.is_completed ?? false)}
+                  className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+              ) : (
+                <div className="mt-1 h-5 w-5 flex items-center justify-center text-gray-400 dark:text-gray-500" title="Shared">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+              )}
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className={`text-lg font-medium ${todo.is_completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
@@ -563,11 +577,11 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
                     <CategoryBadge
                       key={tc.category_id}
                       category={tc.categories}
-                      onRemove={() => removeCategory(todo.id, tc.category_id)}
+                      onRemove={isOwner ? () => removeCategory(todo.id, tc.category_id) : undefined}
                     />
                   ))}
                   {/* Inline add category */}
-                  {categories.length > 0 && (
+                  {isOwner && categories.length > 0 && (
                     <InlineCategoryAdd
                       categories={categories}
                       assignedCategoryIds={todo.todo_categories.map(tc => tc.category_id)}
@@ -580,19 +594,22 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
                     {todo.description}
                   </p>
                 )}
-                <AttachmentSection todoId={todo.id} />
+                <AttachmentSection todoId={todo.id} readOnly={!isOwner} />
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                   Created: {new Date(todo.created_at).toLocaleString()}
                 </p>
               </div>
-              <button
-                onClick={() => deleteTodo(todo.id)}
-                className="px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-              >
-                Delete
-              </button>
+              {isOwner && (
+                <button
+                  onClick={() => deleteTodo(todo.id)}
+                  className="px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                >
+                  Delete
+                </button>
+              )}
             </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>

@@ -13,6 +13,7 @@ interface AttachmentWithUrl extends Attachment {
 
 interface AttachmentSectionProps {
   todoId: string
+  readOnly?: boolean
 }
 
 const MAX_ATTACHMENTS = 5
@@ -27,7 +28,7 @@ function isImageType(contentType: string): boolean {
   return contentType.startsWith('image/')
 }
 
-export default function AttachmentSection({ todoId }: AttachmentSectionProps) {
+export default function AttachmentSection({ todoId, readOnly = false }: AttachmentSectionProps) {
   const [attachments, setAttachments] = useState<AttachmentWithUrl[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -214,40 +215,44 @@ export default function AttachmentSection({ todoId }: AttachmentSectionProps) {
               <span className="text-gray-400 dark:text-gray-500 text-xs">
                 {formatFileSize(attachment.file_size)}
               </span>
-              <button
-                onClick={() => handleDelete(attachment.id)}
-                className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xs ml-1"
-                title="Delete attachment"
-              >
-                &times;
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => handleDelete(attachment.id)}
+                  className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-xs ml-1"
+                  title="Delete attachment"
+                >
+                  &times;
+                </button>
+              )}
             </div>
           ))}
         </div>
       )}
 
       {/* Upload button + count */}
-      <div className="flex items-center gap-2">
-        <label
-          className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded cursor-pointer transition-colors ${
-            isUploading || attachments.length >= MAX_ATTACHMENTS
-              ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-          }`}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            onChange={handleUpload}
-            disabled={isUploading || attachments.length >= MAX_ATTACHMENTS}
-            className="hidden"
-          />
-          {isUploading ? 'Uploading...' : 'Attach file'}
-        </label>
-        <span className="text-xs text-gray-400 dark:text-gray-500">
-          {attachments.length}/{MAX_ATTACHMENTS}
-        </span>
-      </div>
+      {!readOnly && (
+        <div className="flex items-center gap-2">
+          <label
+            className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded cursor-pointer transition-colors ${
+              isUploading || attachments.length >= MAX_ATTACHMENTS
+                ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleUpload}
+              disabled={isUploading || attachments.length >= MAX_ATTACHMENTS}
+              className="hidden"
+            />
+            {isUploading ? 'Uploading...' : 'Attach file'}
+          </label>
+          <span className="text-xs text-gray-400 dark:text-gray-500">
+            {attachments.length}/{MAX_ATTACHMENTS}
+          </span>
+        </div>
+      )}
 
       {/* Error message */}
       {error && (

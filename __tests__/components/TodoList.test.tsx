@@ -60,6 +60,7 @@ describe('TodoList', () => {
       name: 'Work',
       color: 'blue',
       user_id: 'test-user-id',
+      tenant_id: null,
       created_at: '2024-01-01T00:00:00Z',
     },
   ]
@@ -76,6 +77,7 @@ describe('TodoList', () => {
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
       user_id: 'test-user-id',
+      tenant_id: null,
       todo_categories: [{ category_id: 'cat-1', categories: mockCategories[0] }],
     },
     {
@@ -89,6 +91,7 @@ describe('TodoList', () => {
       created_at: '2024-01-02T00:00:00Z',
       updated_at: '2024-01-02T00:00:00Z',
       user_id: 'test-user-id',
+      tenant_id: null,
       todo_categories: [],
     },
   ]
@@ -142,6 +145,7 @@ describe('TodoList', () => {
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
+      tenant_id: null,
       todo_categories: [],
     }
 
@@ -207,6 +211,7 @@ describe('TodoList', () => {
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
+      tenant_id: null,
       todo_categories: [],
     }
 
@@ -249,7 +254,9 @@ describe('TodoList', () => {
 
     render(<TodoList initialTodos={mockTodos} initialCategories={mockCategories} />)
 
-    const checkbox = screen.getAllByRole('checkbox')[0]
+    // Wait for session to load so owner controls appear
+    const checkboxes = await screen.findAllByRole('checkbox')
+    const checkbox = checkboxes[0]
     await user.click(checkbox)
 
     await waitFor(() => {
@@ -274,7 +281,8 @@ describe('TodoList', () => {
         </ConfirmDialogProvider>
     )
 
-    const deleteButtons = screen.getAllByRole('button', { name: /delete/i })
+    // Wait for session to load so owner controls appear
+    const deleteButtons = await screen.findAllByRole('button', { name: /delete/i })
     await user.click(deleteButtons[0])
 
     // Confirm dialog should appear
@@ -304,7 +312,8 @@ describe('TodoList', () => {
         </ConfirmDialogProvider>
     )
 
-    const deleteButtons = screen.getAllByRole('button', { name: /delete/i })
+    // Wait for session to load so owner controls appear
+    const deleteButtons = await screen.findAllByRole('button', { name: /delete/i })
     await user.click(deleteButtons[0])
 
     // Confirm dialog should appear
@@ -352,6 +361,7 @@ describe('TodoList', () => {
         created_at: '2024-01-03T00:00:00Z',
         updated_at: '2024-01-03T00:00:00Z',
         user_id: 'test-user-id',
+        tenant_id: null,
         todo_categories: [],
       }),
     })
@@ -415,6 +425,7 @@ describe('TodoList', () => {
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
+      tenant_id: null,
       todo_categories: [],
     }
 
@@ -519,6 +530,7 @@ describe('TodoList', () => {
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
+      tenant_id: null,
       todo_categories: [],
     }
 
@@ -541,6 +553,88 @@ describe('TodoList', () => {
     await waitFor(() => {
       expect(dueDateInput.value).toBe('')
     })
+  })
+
+  // --- Ownership tests ---
+
+  it('should hide delete button and checkbox for todos not owned by current user', async () => {
+    const sharedTodos: TodoWithCategories[] = [
+      {
+        id: 'shared-1',
+        title: 'Shared Todo',
+        description: 'From a teammate',
+        is_completed: false,
+        priority: 'medium',
+        due_date: null,
+        search_vector: null,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        user_id: 'other-user-id',
+        tenant_id: 'tenant-1',
+        todo_categories: [],
+      },
+    ]
+
+    render(<TodoList initialTodos={sharedTodos} initialCategories={mockCategories} />)
+
+    // Wait for session to load
+    await waitFor(() => {
+      expect(screen.getByText('Shared Todo')).toBeInTheDocument()
+    })
+
+    // No checkboxes or delete buttons for non-owned todos
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument()
+
+    // Attachment section is still rendered (read-only) for shared todos
+    expect(screen.getByTestId('attachment-section')).toBeInTheDocument()
+  })
+
+  it('should show owner controls for own todos and hide for shared todos', async () => {
+    const mixedTodos: TodoWithCategories[] = [
+      {
+        id: 'own-1',
+        title: 'My Todo',
+        description: null,
+        is_completed: false,
+        priority: 'medium',
+        due_date: null,
+        search_vector: null,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        user_id: 'test-user-id',
+        tenant_id: 'tenant-1',
+        todo_categories: [],
+      },
+      {
+        id: 'shared-1',
+        title: 'Teammate Todo',
+        description: null,
+        is_completed: false,
+        priority: 'high',
+        due_date: null,
+        search_vector: null,
+        created_at: '2024-01-02T00:00:00Z',
+        updated_at: '2024-01-02T00:00:00Z',
+        user_id: 'other-user-id',
+        tenant_id: 'tenant-1',
+        todo_categories: [],
+      },
+    ]
+
+    render(<TodoList initialTodos={mixedTodos} initialCategories={mockCategories} />)
+
+    // Wait for session to load and own todo's checkbox to appear
+    const checkboxes = await screen.findAllByRole('checkbox')
+    expect(checkboxes).toHaveLength(1) // Only own todo has checkbox
+
+    // Only one delete button (for own todo)
+    const deleteButtons = screen.getAllByRole('button', { name: /delete/i })
+    expect(deleteButtons).toHaveLength(1)
+
+    // Both todos are rendered
+    expect(screen.getByText('My Todo')).toBeInTheDocument()
+    expect(screen.getByText('Teammate Todo')).toBeInTheDocument()
   })
 
   // --- Search functionality tests ---
@@ -569,6 +663,7 @@ describe('TodoList', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
         user_id: 'test-user-id',
+        tenant_id: null,
         todo_categories: [],
       },
     ]

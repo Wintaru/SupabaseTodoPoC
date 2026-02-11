@@ -24,6 +24,7 @@ describe('CategoryManager', () => {
       name: 'Work',
       color: 'blue',
       user_id: 'test-user-id',
+      tenant_id: null,
       created_at: '2024-01-01T00:00:00Z',
     },
     {
@@ -31,6 +32,7 @@ describe('CategoryManager', () => {
       name: 'Personal',
       color: 'green',
       user_id: 'test-user-id',
+      tenant_id: null,
       created_at: '2024-01-02T00:00:00Z',
     },
   ]
@@ -44,6 +46,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={mockCategories}
+        currentUserId="test-user-id"
         onCategoryCreated={jest.fn()}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={jest.fn()}
@@ -57,6 +60,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={[]}
+        currentUserId="test-user-id"
         onCategoryCreated={jest.fn()}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={jest.fn()}
@@ -71,6 +75,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={mockCategories}
+        currentUserId="test-user-id"
         onCategoryCreated={jest.fn()}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={jest.fn()}
@@ -99,6 +104,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={[]}
+        currentUserId="test-user-id"
         onCategoryCreated={jest.fn()}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={jest.fn()}
@@ -118,6 +124,7 @@ describe('CategoryManager', () => {
       name: 'Shopping',
       color: 'red',
       user_id: 'test-user-id',
+      tenant_id: null,
       created_at: '2024-01-10T00:00:00Z',
     }
 
@@ -130,6 +137,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={mockCategories}
+        currentUserId="test-user-id"
         onCategoryCreated={onCategoryCreated}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={jest.fn()}
@@ -175,6 +183,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={[]}
+        currentUserId="test-user-id"
         onCategoryCreated={onCategoryCreated}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={jest.fn()}
@@ -198,6 +207,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={mockCategories}
+        currentUserId="test-user-id"
         onCategoryCreated={jest.fn()}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={jest.fn()}
@@ -238,6 +248,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={mockCategories}
+        currentUserId="test-user-id"
         onCategoryCreated={jest.fn()}
         onCategoryUpdated={onCategoryUpdated}
         onCategoryDeleted={jest.fn()}
@@ -284,6 +295,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={mockCategories}
+        currentUserId="test-user-id"
         onCategoryCreated={jest.fn()}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={jest.fn()}
@@ -323,6 +335,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={mockCategories}
+        currentUserId="test-user-id"
         onCategoryCreated={jest.fn()}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={onCategoryDeleted}
@@ -362,6 +375,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={mockCategories}
+        currentUserId="test-user-id"
         onCategoryCreated={jest.fn()}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={onCategoryDeleted}
@@ -396,6 +410,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={[]}
+        currentUserId="test-user-id"
         onCategoryCreated={jest.fn()}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={jest.fn()}
@@ -442,6 +457,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={[]}
+        currentUserId="test-user-id"
         onCategoryCreated={onCategoryCreated}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={jest.fn()}
@@ -463,6 +479,40 @@ describe('CategoryManager', () => {
     consoleSpy.mockRestore()
   })
 
+  it('should hide edit and delete buttons for categories not owned by current user', async () => {
+    const user = userEvent.setup()
+    const otherUserCategories: Category[] = [
+      {
+        id: 'cat-other',
+        name: 'Shared',
+        color: 'purple',
+        user_id: 'other-user-id',
+        tenant_id: null,
+        created_at: '2024-01-01T00:00:00Z',
+      },
+    ]
+
+    render(
+      <CategoryManager
+        categories={otherUserCategories}
+        currentUserId="test-user-id"
+        onCategoryCreated={jest.fn()}
+        onCategoryUpdated={jest.fn()}
+        onCategoryDeleted={jest.fn()}
+      />
+    )
+
+    // Expand
+    await user.click(screen.getByText(/Manage Categories/))
+
+    // Category name should be visible
+    expect(screen.getByText('Shared')).toBeInTheDocument()
+
+    // Edit and Delete buttons should NOT be rendered
+    expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument()
+  })
+
   it('should handle API errors gracefully when deleting', async () => {
     const user = userEvent.setup()
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
@@ -474,6 +524,7 @@ describe('CategoryManager', () => {
     render(
       <CategoryManager
         categories={mockCategories}
+        currentUserId="test-user-id"
         onCategoryCreated={jest.fn()}
         onCategoryUpdated={jest.fn()}
         onCategoryDeleted={onCategoryDeleted}

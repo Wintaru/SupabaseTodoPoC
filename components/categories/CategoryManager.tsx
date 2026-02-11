@@ -8,6 +8,7 @@ import { CATEGORY_COLORS, CATEGORY_COLOR_CLASSES } from '@/lib/types'
 
 interface CategoryManagerProps {
   categories: Category[]
+  currentUserId?: string | null
   onCategoryCreated: (category: Category) => void
   onCategoryUpdated: (category: Category) => void
   onCategoryDeleted: (categoryId: string) => void
@@ -15,6 +16,7 @@ interface CategoryManagerProps {
 
 export default function CategoryManager({
   categories,
+  currentUserId,
   onCategoryCreated,
   onCategoryUpdated,
   onCategoryDeleted,
@@ -144,8 +146,9 @@ export default function CategoryManager({
             <div className="space-y-2">
               {categories.map((category) => {
                 const colors = CATEGORY_COLOR_CLASSES[category.color] || CATEGORY_COLOR_CLASSES.blue
+                const isCategoryOwner = currentUserId != null && category.user_id === currentUserId
 
-                if (editingId === category.id) {
+                if (isCategoryOwner && editingId === category.id) {
                   return (
                     <div key={category.id} className="flex items-center gap-2">
                       <input
@@ -186,20 +189,22 @@ export default function CategoryManager({
                     <span className={`px-2 py-0.5 text-xs font-medium rounded ${colors.badge} ${colors.badgeDark}`}>
                       {category.name}
                     </span>
-                    <div className="ml-auto flex gap-1">
-                      <button
-                        onClick={() => startEdit(category)}
-                        className="px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deleteCategory(category.id, category.name)}
-                        className="px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    {isCategoryOwner && (
+                      <div className="ml-auto flex gap-1">
+                        <button
+                          onClick={() => startEdit(category)}
+                          className="px-2 py-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => deleteCategory(category.id, category.name)}
+                          className="px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )
               })}
