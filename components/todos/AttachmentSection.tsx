@@ -31,6 +31,7 @@ export default function AttachmentSection({ todoId }: AttachmentSectionProps) {
   const [attachments, setAttachments] = useState<AttachmentWithUrl[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [previewAttachment, setPreviewAttachment] = useState<AttachmentWithUrl | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const confirm = useConfirm()
@@ -187,11 +188,9 @@ export default function AttachmentSection({ todoId }: AttachmentSectionProps) {
               className="flex items-center gap-2 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-sm"
             >
               {isImageType(attachment.content_type) ? (
-                <a
-                  href={attachment.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 hover:underline"
+                <button
+                  onClick={() => setPreviewAttachment(attachment)}
+                  className="flex items-center gap-2 hover:underline cursor-pointer"
                 >
                   <img
                     src={attachment.url}
@@ -201,7 +200,7 @@ export default function AttachmentSection({ todoId }: AttachmentSectionProps) {
                   <span className="text-gray-700 dark:text-gray-300 max-w-[120px] truncate">
                     {attachment.file_name}
                   </span>
-                </a>
+                </button>
               ) : (
                 <a
                   href={attachment.url}
@@ -253,6 +252,38 @@ export default function AttachmentSection({ todoId }: AttachmentSectionProps) {
       {/* Error message */}
       {error && (
         <p className="text-xs text-red-600 dark:text-red-400 mt-1">{error}</p>
+      )}
+
+      {/* Image preview modal */}
+      {previewAttachment && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+          onClick={() => setPreviewAttachment(null)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setPreviewAttachment(null) }}
+          role="dialog"
+          aria-label={`Preview of ${previewAttachment.file_name}`}
+        >
+          <div
+            className="relative max-w-[90vw] max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setPreviewAttachment(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 flex items-center justify-center bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-lg"
+              aria-label="Close preview"
+            >
+              &times;
+            </button>
+            <img
+              src={previewAttachment.url}
+              alt={previewAttachment.file_name}
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+            />
+            <p className="text-center text-white text-sm mt-2">
+              {previewAttachment.file_name}
+            </p>
+          </div>
+        </div>
       )}
     </div>
   )

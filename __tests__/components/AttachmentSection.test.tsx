@@ -118,7 +118,7 @@ describe('AttachmentSection', () => {
     })
   })
 
-  it('should show image previews for image attachments', async () => {
+  it('should show image thumbnails for image attachments', async () => {
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => [mockAttachments[0]],
@@ -131,6 +131,34 @@ describe('AttachmentSection', () => {
       expect(img).toBeInTheDocument()
       expect(img).toHaveAttribute('src', mockAttachments[0].url)
     })
+  })
+
+  it('should open image preview modal when clicking an image attachment', async () => {
+    const user = userEvent.setup()
+
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => [mockAttachments[0]],
+    })
+
+    render(<AttachmentSection todoId={TEST_TODO_ID} />)
+
+    await waitFor(() => {
+      expect(screen.getByAltText('photo.jpg')).toBeInTheDocument()
+    })
+
+    // Click the image thumbnail to open preview
+    await user.click(screen.getByAltText('photo.jpg'))
+
+    // Modal should appear with the full-size image and dialog role
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toBeInTheDocument()
+    const previewImages = within(dialog).getAllByAltText('photo.jpg')
+    expect(previewImages.length).toBeGreaterThan(0)
+
+    // Close button should dismiss the modal
+    await user.click(screen.getByLabelText('Close preview'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('should show human-readable file sizes', async () => {
