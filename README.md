@@ -2,6 +2,9 @@
 
 A full-stack Todo app demonstrating Supabase integration with Next.js: database migrations, type-safe operations, real-time subscriptions, authentication, and more.
 
+![Demo](https://github.com/user-attachments/assets/be23fde7-f332-429e-9a75-34d2f11515cb)
+
+
 ## Prerequisites
 
 You need three things installed: **Node.js**, **Docker**, and the **Supabase CLI**.
