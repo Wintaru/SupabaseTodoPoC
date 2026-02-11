@@ -34,6 +34,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       todo_attachments: {
         Row: {
           content_type: string
@@ -68,6 +92,36 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "todo_attachments_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      todo_categories: {
+        Row: {
+          category_id: string
+          todo_id: string
+        }
+        Insert: {
+          category_id: string
+          todo_id: string
+        }
+        Update: {
+          category_id?: string
+          todo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "todo_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "todo_categories_todo_id_fkey"
             columns: ["todo_id"]
             isOneToOne: false
             referencedRelation: "todos"

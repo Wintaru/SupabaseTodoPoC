@@ -5,34 +5,38 @@ import { createClient } from '@/lib/supabase/client'
 import { apiFetch } from '@/lib/fetch'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import type { RealtimeChannel } from '@supabase/supabase-js'
-import type { Todo } from '@/lib/types'
+import type { Todo, Category, TodoWithCategories } from '@/lib/types'
 import AttachmentSection from './AttachmentSection'
+import CategoryBadge from '@/components/categories/CategoryBadge'
+import CategoryFilter from '@/components/categories/CategoryFilter'
+import CategoryPicker from '@/components/categories/CategoryPicker'
+import CategoryManager from '@/components/categories/CategoryManager'
 
 interface TodoListProps {
-  initialTodos: Todo[]
+  initialTodos: TodoWithCategories[]
+  initialCategories: Category[]
 }
 
-export default function TodoList({ initialTodos }: TodoListProps) {
-  const [todos, setTodos] = useState<Todo[]>(initialTodos)
+export default function TodoList({ initialTodos, initialCategories }: TodoListProps) {
+  const [todos, setTodos] = useState<TodoWithCategories[]>(initialTodos)
+  const [categories, setCategories] = useState<Category[]>(initialCategories)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
+  const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const channelRef = useRef<RealtimeChannel | null>(null)
+  const categoriesChannelRef = useRef<RealtimeChannel | null>(null)
+  const todoCategoriesChannelRef = useRef<RealtimeChannel | null>(null)
   const confirm = useConfirm()
 
-  // Set up real-time subscription for todos
-  // IMPORTANT: We must wait for the auth session to be ready before subscribing.
-  // The Supabase JS client initializes auth asynchronously — if we subscribe
-  // before the JWT is available, the Realtime WebSocket connects with only the
-  // anon key, causing WALRUS's RLS SELECT check to fail (auth.uid() = null).
-  // DELETE events still work because Realtime bypasses RLS for deletes.
+  // Set up real-time subscriptions
   useEffect(() => {
     const supabase = createClient()
     let cancelled = false
 
     const setupSubscription = async () => {
-      // Wait for the auth session to be fully initialized
       const { data: { session } } = await supabase.auth.getSession()
 
       if (cancelled) return
@@ -42,50 +46,39 @@ export default function TodoList({ initialTodos }: TodoListProps) {
         return
       }
 
-      // Explicitly set the Realtime auth token so WALRUS can evaluate
-      // RLS policies with the correct user identity
       supabase.realtime.setAuth(session.access_token)
 
+      // Todos channel
       const channel = supabase
         .channel('todos-changes')
         .on(
           'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'todos',
-          },
+          { event: 'INSERT', schema: 'public', table: 'todos' },
           (payload) => {
-            // Only add if not already in list (prevents duplicate from optimistic update)
             setTodos((current) => {
               const exists = current.some(todo => todo.id === payload.new.id)
               if (exists) return current
-              return [payload.new as Todo, ...current]
+              const newTodo = { ...payload.new as Todo, todo_categories: [] } as TodoWithCategories
+              return [newTodo, ...current]
             })
           }
         )
         .on(
           'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'todos',
-          },
+          { event: 'UPDATE', schema: 'public', table: 'todos' },
           (payload) => {
             setTodos((current) =>
               current.map((todo) =>
-                todo.id === payload.new.id ? (payload.new as Todo) : todo
+                todo.id === payload.new.id
+                  ? { ...payload.new, todo_categories: todo.todo_categories } as TodoWithCategories
+                  : todo
               )
             )
           }
         )
         .on(
           'postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'todos',
-          },
+          { event: 'DELETE', schema: 'public', table: 'todos' },
           (payload) => {
             setTodos((current) =>
               current.filter((todo) => todo.id !== payload.old.id)
@@ -95,17 +88,129 @@ export default function TodoList({ initialTodos }: TodoListProps) {
         .subscribe()
 
       channelRef.current = channel
+
+      // Categories channel
+      const categoriesChannel = supabase
+        .channel('categories-changes')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'categories' },
+          (payload) => {
+            setCategories((current) => {
+              const exists = current.some(c => c.id === payload.new.id)
+              if (exists) return current
+              return [...current, payload.new as Category].sort((a, b) => a.name.localeCompare(b.name))
+            })
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'categories' },
+          (payload) => {
+            setCategories((current) =>
+              current.map((c) =>
+                c.id === payload.new.id ? (payload.new as Category) : c
+              ).sort((a, b) => a.name.localeCompare(b.name))
+            )
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'categories' },
+          (payload) => {
+            setCategories((current) =>
+              current.filter((c) => c.id !== payload.old.id)
+            )
+            // Also remove from todos' category lists
+            setTodos((current) =>
+              current.map((todo) => ({
+                ...todo,
+                todo_categories: todo.todo_categories.filter(
+                  (tc) => tc.category_id !== payload.old.id
+                ),
+              }))
+            )
+            // Clear filter if the deleted category was being filtered
+            setFilterCategoryId((current) =>
+              current === payload.old.id ? null : current
+            )
+          }
+        )
+        .subscribe()
+
+      categoriesChannelRef.current = categoriesChannel
+
+      // Todo-categories junction channel
+      const todoCategoriesChannel = supabase
+        .channel('todo-categories-changes')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'todo_categories' },
+          (payload) => {
+            const { todo_id, category_id } = payload.new as { todo_id: string; category_id: string }
+            setTodos((current) =>
+              current.map((todo) => {
+                if (todo.id !== todo_id) return todo
+                const exists = todo.todo_categories.some(tc => tc.category_id === category_id)
+                if (exists) return todo
+                // Find the category to embed
+                setCategories((cats) => {
+                  const cat = cats.find(c => c.id === category_id)
+                  if (cat) {
+                    setTodos((inner) =>
+                      inner.map((t) =>
+                        t.id === todo_id
+                          ? {
+                              ...t,
+                              todo_categories: [
+                                ...t.todo_categories.filter(tc => tc.category_id !== category_id),
+                                { category_id, categories: cat },
+                              ],
+                            }
+                          : t
+                      )
+                    )
+                  }
+                  return cats
+                })
+                return todo
+              })
+            )
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'todo_categories' },
+          (payload) => {
+            const { todo_id, category_id } = payload.old as { todo_id: string; category_id: string }
+            setTodos((current) =>
+              current.map((todo) =>
+                todo.id === todo_id
+                  ? {
+                      ...todo,
+                      todo_categories: todo.todo_categories.filter(
+                        (tc) => tc.category_id !== category_id
+                      ),
+                    }
+                  : todo
+              )
+            )
+          }
+        )
+        .subscribe()
+
+      todoCategoriesChannelRef.current = todoCategoriesChannel
     }
 
     setupSubscription()
 
     return () => {
       cancelled = true
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
-      }
+      if (channelRef.current) supabase.removeChannel(channelRef.current)
+      if (categoriesChannelRef.current) supabase.removeChannel(categoriesChannelRef.current)
+      if (todoCategoriesChannelRef.current) supabase.removeChannel(todoCategoriesChannelRef.current)
     }
-  }, []) // Empty deps - subscribe once on mount
+  }, [])
 
   const addTodo = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -116,7 +221,12 @@ export default function TodoList({ initialTodos }: TodoListProps) {
       const response = await apiFetch('/api/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description, priority }),
+        body: JSON.stringify({
+          title,
+          description,
+          priority,
+          category_ids: selectedCategoryIds,
+        }),
       })
 
       if (response.ok) {
@@ -125,6 +235,7 @@ export default function TodoList({ initialTodos }: TodoListProps) {
         setTitle('')
         setDescription('')
         setPriority('medium')
+        setSelectedCategoryIds([])
       }
     } catch (error) {
       console.error('Error adding todo:', error)
@@ -143,7 +254,9 @@ export default function TodoList({ initialTodos }: TodoListProps) {
 
       if (response.ok) {
         const updatedTodo = await response.json()
-        setTodos(todos.map(todo => todo.id === id ? updatedTodo : todo))
+        setTodos(todos.map(todo =>
+          todo.id === id ? { ...updatedTodo, todo_categories: todo.todo_categories } : todo
+        ))
       }
     } catch (error) {
       console.error('Error toggling todo:', error)
@@ -167,9 +280,79 @@ export default function TodoList({ initialTodos }: TodoListProps) {
     }
   }
 
+  const assignCategory = async (todoId: string, categoryId: string) => {
+    try {
+      const response = await apiFetch(`/api/todos/${todoId}/categories`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category_id: categoryId }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setTodos(todos.map(todo =>
+          todo.id === todoId
+            ? { ...todo, todo_categories: [...todo.todo_categories, data] }
+            : todo
+        ))
+      }
+    } catch (error) {
+      console.error('Error assigning category:', error)
+    }
+  }
+
+  const removeCategory = async (todoId: string, categoryId: string) => {
+    try {
+      const response = await apiFetch(`/api/todos/${todoId}/categories/${categoryId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        setTodos(todos.map(todo =>
+          todo.id === todoId
+            ? {
+                ...todo,
+                todo_categories: todo.todo_categories.filter(tc => tc.category_id !== categoryId),
+              }
+            : todo
+        ))
+      }
+    } catch (error) {
+      console.error('Error removing category:', error)
+    }
+  }
+
+  // Filter todos by selected category
+  const filteredTodos = filterCategoryId
+    ? todos.filter(todo =>
+        todo.todo_categories.some(tc => tc.category_id === filterCategoryId)
+      )
+    : todos
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-8">Todo List</h1>
+
+      {/* Category Manager */}
+      <CategoryManager
+        categories={categories}
+        onCategoryCreated={(category) =>
+          setCategories([...categories, category].sort((a, b) => a.name.localeCompare(b.name)))
+        }
+        onCategoryUpdated={(updated) =>
+          setCategories(
+            categories.map(c => (c.id === updated.id ? updated : c)).sort((a, b) => a.name.localeCompare(b.name))
+          )
+        }
+        onCategoryDeleted={(categoryId) => {
+          setCategories(categories.filter(c => c.id !== categoryId))
+          setTodos(todos.map(todo => ({
+            ...todo,
+            todo_categories: todo.todo_categories.filter(tc => tc.category_id !== categoryId),
+          })))
+          if (filterCategoryId === categoryId) setFilterCategoryId(null)
+        }}
+      />
 
       {/* Add Todo Form */}
       <form onSubmit={addTodo} className="mb-8 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
@@ -200,20 +383,32 @@ export default function TodoList({ initialTodos }: TodoListProps) {
             rows={3}
           />
         </div>
-        <div className="mb-4">
-          <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Priority
-          </label>
-          <select
-            id="priority"
-            value={priority}
-            onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Priority
+            </label>
+            <select
+              id="priority"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Categories
+            </label>
+            <CategoryPicker
+              categories={categories}
+              selectedIds={selectedCategoryIds}
+              onChange={setSelectedCategoryIds}
+            />
+          </div>
         </div>
         <button
           type="submit"
@@ -224,12 +419,21 @@ export default function TodoList({ initialTodos }: TodoListProps) {
         </button>
       </form>
 
+      {/* Category Filter */}
+      <CategoryFilter
+        categories={categories}
+        selectedCategoryId={filterCategoryId}
+        onSelect={setFilterCategoryId}
+      />
+
       {/* Todo List */}
       <div className="space-y-4">
-        {todos.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-8">No todos yet. Add one above!</p>
+        {filteredTodos.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+            {filterCategoryId ? 'No todos with this category.' : 'No todos yet. Add one above!'}
+          </p>
         ) : (
-          todos.map((todo) => (
+          filteredTodos.map((todo) => (
             <div
               key={todo.id}
               className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md flex items-start gap-4"
@@ -241,7 +445,7 @@ export default function TodoList({ initialTodos }: TodoListProps) {
                 className="mt-1 h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <div className="flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className={`text-lg font-medium ${todo.is_completed ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
                     {todo.title}
                   </h3>
@@ -252,6 +456,21 @@ export default function TodoList({ initialTodos }: TodoListProps) {
                   }`}>
                     {todo.priority}
                   </span>
+                  {todo.todo_categories.map((tc) => (
+                    <CategoryBadge
+                      key={tc.category_id}
+                      category={tc.categories}
+                      onRemove={() => removeCategory(todo.id, tc.category_id)}
+                    />
+                  ))}
+                  {/* Inline add category */}
+                  {categories.length > 0 && (
+                    <InlineCategoryAdd
+                      categories={categories}
+                      assignedCategoryIds={todo.todo_categories.map(tc => tc.category_id)}
+                      onAssign={(categoryId) => assignCategory(todo.id, categoryId)}
+                    />
+                  )}
                 </div>
                 {todo.description && (
                   <p className={`text-sm mt-1 ${todo.is_completed ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-300'}`}>
@@ -273,6 +492,51 @@ export default function TodoList({ initialTodos }: TodoListProps) {
           ))
         )}
       </div>
+    </div>
+  )
+}
+
+// Small inline component for adding a category to a todo
+function InlineCategoryAdd({
+  categories,
+  assignedCategoryIds,
+  onAssign,
+}: {
+  categories: Category[]
+  assignedCategoryIds: string[]
+  onAssign: (categoryId: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const unassigned = categories.filter(c => !assignedCategoryIds.includes(c.id))
+
+  if (unassigned.length === 0) return null
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="px-1.5 py-0.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 border border-dashed border-gray-300 dark:border-gray-600 rounded transition-colors"
+        aria-label="Add category"
+      >
+        +
+      </button>
+      {isOpen && (
+        <div className="absolute z-10 left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg min-w-[150px]">
+          {unassigned.map((category) => (
+            <button
+              key={category.id}
+              onClick={() => {
+                onAssign(category.id)
+                setIsOpen(false)
+              }}
+              className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+            >
+              <CategoryBadge category={category} />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

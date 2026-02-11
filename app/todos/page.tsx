@@ -10,8 +10,13 @@ export default async function TodosPage() {
 
   const { data: todos } = await supabase
     .from('todos')
-    .select('*')
+    .select('*, todo_categories(category_id, categories(*))')
     .order('created_at', { ascending: false })
+
+  const { data: categories } = await supabase
+    .from('categories')
+    .select('*')
+    .order('name', { ascending: true })
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -32,7 +37,7 @@ export default async function TodosPage() {
             <SignOutButton />
           </div>
         </div>
-        <TodoList initialTodos={todos || []} />
+        <TodoList initialTodos={todos || []} initialCategories={categories || []} />
       </div>
     </div>
   )

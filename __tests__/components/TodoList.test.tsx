@@ -3,7 +3,7 @@ import '@testing-library/jest-dom'
 import userEvent from '@testing-library/user-event'
 import TodoList from '@/components/todos/TodoList'
 import { ConfirmDialogProvider } from '@/components/ui/ConfirmDialog'
-import type { Todo } from '@/lib/types'
+import type { TodoWithCategories, Category } from '@/lib/types'
 
 // Mock fetch
 global.fetch = jest.fn()
@@ -47,7 +47,17 @@ jest.mock('@/lib/supabase/client', () => ({
 }))
 
 describe('TodoList', () => {
-  const mockTodos: Todo[] = [
+  const mockCategories: Category[] = [
+    {
+      id: 'cat-1',
+      name: 'Work',
+      color: 'blue',
+      user_id: 'test-user-id',
+      created_at: '2024-01-01T00:00:00Z',
+    },
+  ]
+
+  const mockTodos: TodoWithCategories[] = [
     {
       id: '1',
       title: 'Test Todo 1',
@@ -57,6 +67,7 @@ describe('TodoList', () => {
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
       user_id: 'test-user-id',
+      todo_categories: [{ category_id: 'cat-1', categories: mockCategories[0] }],
     },
     {
       id: '2',
@@ -67,6 +78,7 @@ describe('TodoList', () => {
       created_at: '2024-01-02T00:00:00Z',
       updated_at: '2024-01-02T00:00:00Z',
       user_id: 'test-user-id',
+      todo_categories: [],
     },
   ]
 
@@ -75,7 +87,7 @@ describe('TodoList', () => {
   })
 
   it('should render the component with initial todos', () => {
-    render(<TodoList initialTodos={mockTodos} />)
+    render(<TodoList initialTodos={mockTodos} initialCategories={mockCategories} />)
 
     expect(screen.getByText('Todo List')).toBeInTheDocument()
     expect(screen.getByText('Test Todo 1')).toBeInTheDocument()
@@ -84,7 +96,7 @@ describe('TodoList', () => {
   })
 
   it('should display priority badges with correct colors', () => {
-    render(<TodoList initialTodos={mockTodos} />)
+    render(<TodoList initialTodos={mockTodos} initialCategories={mockCategories} />)
 
     const highBadge = screen.getByText('high')
     const lowBadge = screen.getByText('low')
@@ -94,13 +106,13 @@ describe('TodoList', () => {
   })
 
   it('should render empty state when no todos', () => {
-    render(<TodoList initialTodos={[]} />)
+    render(<TodoList initialTodos={[]} initialCategories={mockCategories} />)
 
     expect(screen.getByText('No todos yet. Add one above!')).toBeInTheDocument()
   })
 
   it('should show completed todos with line-through', () => {
-    render(<TodoList initialTodos={mockTodos} />)
+    render(<TodoList initialTodos={mockTodos} initialCategories={mockCategories} />)
 
     const completedTodo = screen.getByText('Test Todo 2')
     expect(completedTodo).toHaveClass('line-through')
@@ -108,7 +120,7 @@ describe('TodoList', () => {
 
   it('should add a new todo', async () => {
     const user = userEvent.setup()
-    const newTodo: Todo = {
+    const newTodo: TodoWithCategories = {
       id: '3',
       title: 'New Todo',
       description: 'New Description',
@@ -117,6 +129,7 @@ describe('TodoList', () => {
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
+      todo_categories: [],
     }
 
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -124,7 +137,7 @@ describe('TodoList', () => {
       json: async () => newTodo,
     })
 
-    render(<TodoList initialTodos={[]} />)
+    render(<TodoList initialTodos={[]} initialCategories={mockCategories} />)
 
     // Fill in the form
     const titleInput = screen.getByLabelText(/title/i)
@@ -151,13 +164,14 @@ describe('TodoList', () => {
         title: 'New Todo',
         description: 'New Description',
         priority: 'medium',
+        category_ids: [],
       }),
     })
   })
 
   it('should not add todo with empty title', async () => {
     const user = userEvent.setup()
-    render(<TodoList initialTodos={[]} />)
+    render(<TodoList initialTodos={[]} initialCategories={mockCategories} />)
 
     const submitButton = screen.getByRole('button', { name: /add todo/i })
     await user.click(submitButton)
@@ -168,7 +182,7 @@ describe('TodoList', () => {
 
   it('should clear form after adding todo', async () => {
     const user = userEvent.setup()
-    const newTodo: Todo = {
+    const newTodo: TodoWithCategories = {
       id: '3',
       title: 'New Todo',
       description: 'New Description',
@@ -177,6 +191,7 @@ describe('TodoList', () => {
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
+      todo_categories: [],
     }
 
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -184,7 +199,7 @@ describe('TodoList', () => {
       json: async () => newTodo,
     })
 
-    render(<TodoList initialTodos={[]} />)
+    render(<TodoList initialTodos={[]} initialCategories={mockCategories} />)
 
     const titleInput = screen.getByLabelText(/title/i) as HTMLInputElement
     const descriptionInput = screen.getByLabelText(/description/i) as HTMLTextAreaElement
@@ -206,7 +221,7 @@ describe('TodoList', () => {
 
   it('should toggle todo completion', async () => {
     const user = userEvent.setup()
-    const updatedTodo: Todo = {
+    const updatedTodo: TodoWithCategories = {
       ...mockTodos[0],
       is_completed: true,
     }
@@ -216,7 +231,7 @@ describe('TodoList', () => {
       json: async () => updatedTodo,
     })
 
-    render(<TodoList initialTodos={mockTodos} />)
+    render(<TodoList initialTodos={mockTodos} initialCategories={mockCategories} />)
 
     const checkbox = screen.getAllByRole('checkbox')[0]
     await user.click(checkbox)
@@ -239,8 +254,8 @@ describe('TodoList', () => {
 
     render(
       <ConfirmDialogProvider>
-        <TodoList initialTodos={mockTodos} />
-      </ConfirmDialogProvider>
+        <TodoList initialTodos={mockTodos} initialCategories={mockCategories} />
+        </ConfirmDialogProvider>
     )
 
     const deleteButtons = screen.getAllByRole('button', { name: /delete/i })
@@ -269,8 +284,8 @@ describe('TodoList', () => {
 
     render(
       <ConfirmDialogProvider>
-        <TodoList initialTodos={mockTodos} />
-      </ConfirmDialogProvider>
+        <TodoList initialTodos={mockTodos} initialCategories={mockCategories} />
+        </ConfirmDialogProvider>
     )
 
     const deleteButtons = screen.getAllByRole('button', { name: /delete/i })
@@ -296,7 +311,7 @@ describe('TodoList', () => {
 
     ;(global.fetch as jest.Mock).mockReturnValueOnce(promise)
 
-    render(<TodoList initialTodos={[]} />)
+    render(<TodoList initialTodos={[]} initialCategories={mockCategories} />)
 
     const titleInput = screen.getByLabelText(/title/i)
     await user.type(titleInput, 'New Todo')
@@ -320,6 +335,7 @@ describe('TodoList', () => {
         created_at: '2024-01-03T00:00:00Z',
         updated_at: '2024-01-03T00:00:00Z',
         user_id: 'test-user-id',
+        todo_categories: [],
       }),
     })
 
@@ -334,7 +350,7 @@ describe('TodoList', () => {
 
     ;(global.fetch as jest.Mock).mockRejectedValueOnce(new Error('API Error'))
 
-    render(<TodoList initialTodos={[]} />)
+    render(<TodoList initialTodos={[]} initialCategories={mockCategories} />)
 
     const titleInput = screen.getByLabelText(/title/i)
     await user.type(titleInput, 'New Todo')
@@ -350,7 +366,7 @@ describe('TodoList', () => {
   })
 
   it('should render all priority options in select', () => {
-    render(<TodoList initialTodos={[]} />)
+    render(<TodoList initialTodos={[]} initialCategories={mockCategories} />)
 
     const prioritySelect = screen.getByLabelText(/priority/i)
     const options = within(prioritySelect).getAllByRole('option')

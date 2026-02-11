@@ -23,6 +23,7 @@ describe('/api/todos', () => {
       insert: jest.fn(() => mockSupabase),
       order: jest.fn(() => mockSupabase),
       single: jest.fn(() => mockSupabase),
+      eq: jest.fn(() => mockSupabase),
     }
     ;(createClient as jest.Mock).mockResolvedValue(mockSupabase)
   })
@@ -55,7 +56,7 @@ describe('/api/todos', () => {
       const data = await response.json()
 
       expect(mockSupabase.from).toHaveBeenCalledWith('todos')
-      expect(mockSupabase.select).toHaveBeenCalledWith('*')
+      expect(mockSupabase.select).toHaveBeenCalledWith('*, todo_categories(category_id, categories(*))')
       expect(mockSupabase.order).toHaveBeenCalledWith('created_at', { ascending: false })
       expect(data).toEqual(mockTodos)
       expect(response.status).toBe(200)
@@ -88,10 +89,15 @@ describe('/api/todos', () => {
         updated_at: '2024-01-01T00:00:00Z',
       }
 
-      mockSupabase.single.mockResolvedValue({
-        data: newTodo,
-        error: null,
-      })
+      const todoWithCategories = {
+        ...newTodo,
+        todo_categories: [],
+      }
+
+      // First single() for insert, second single() for re-fetch
+      mockSupabase.single
+        .mockResolvedValueOnce({ data: newTodo, error: null })
+        .mockResolvedValueOnce({ data: todoWithCategories, error: null })
 
       const request = new Request('http://localhost:3000/api/todos', {
         method: 'POST',
@@ -114,7 +120,7 @@ describe('/api/todos', () => {
         priority: 'high',
         user_id: TEST_USER_ID,
       })
-      expect(data).toEqual(newTodo)
+      expect(data).toEqual(todoWithCategories)
       expect(response.status).toBe(201)
     })
 
@@ -168,10 +174,9 @@ describe('/api/todos', () => {
         updated_at: '2024-01-01T00:00:00Z',
       }
 
-      mockSupabase.single.mockResolvedValue({
-        data: newTodo,
-        error: null,
-      })
+      mockSupabase.single
+        .mockResolvedValueOnce({ data: newTodo, error: null })
+        .mockResolvedValueOnce({ data: { ...newTodo, todo_categories: [] }, error: null })
 
       const request = new Request('http://localhost:3000/api/todos', {
         method: 'POST',
@@ -193,10 +198,9 @@ describe('/api/todos', () => {
     })
 
     it('should trim whitespace from title and description', async () => {
-      mockSupabase.single.mockResolvedValue({
-        data: {},
-        error: null,
-      })
+      mockSupabase.single
+        .mockResolvedValueOnce({ data: { id: '1' }, error: null })
+        .mockResolvedValueOnce({ data: { id: '1', todo_categories: [] }, error: null })
 
       const request = new Request('http://localhost:3000/api/todos', {
         method: 'POST',
