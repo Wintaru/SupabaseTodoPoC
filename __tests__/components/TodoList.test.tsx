@@ -72,6 +72,7 @@ describe('TodoList', () => {
       is_completed: false,
       priority: 'high',
       due_date: null,
+      search_vector: null,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
       user_id: 'test-user-id',
@@ -84,6 +85,7 @@ describe('TodoList', () => {
       is_completed: true,
       priority: 'low',
       due_date: null,
+      search_vector: null,
       created_at: '2024-01-02T00:00:00Z',
       updated_at: '2024-01-02T00:00:00Z',
       user_id: 'test-user-id',
@@ -136,6 +138,7 @@ describe('TodoList', () => {
       is_completed: false,
       priority: 'medium',
       due_date: null,
+      search_vector: null,
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
@@ -200,6 +203,7 @@ describe('TodoList', () => {
       is_completed: false,
       priority: 'high',
       due_date: null,
+      search_vector: null,
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
@@ -344,6 +348,7 @@ describe('TodoList', () => {
         description: null,
         is_completed: false,
         priority: 'medium',
+        search_vector: null,
         created_at: '2024-01-03T00:00:00Z',
         updated_at: '2024-01-03T00:00:00Z',
         user_id: 'test-user-id',
@@ -406,6 +411,7 @@ describe('TodoList', () => {
       is_completed: false,
       priority: 'medium',
       due_date: '2026-03-15',
+      search_vector: null,
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
@@ -509,6 +515,7 @@ describe('TodoList', () => {
       is_completed: false,
       priority: 'medium',
       due_date: '2026-03-15',
+      search_vector: null,
       created_at: '2024-01-03T00:00:00Z',
       updated_at: '2024-01-03T00:00:00Z',
       user_id: 'test-user-id',
@@ -534,6 +541,137 @@ describe('TodoList', () => {
     await waitFor(() => {
       expect(dueDateInput.value).toBe('')
     })
+  })
+
+  // --- Search functionality tests ---
+
+  it('should render the search input', () => {
+    render(<TodoList initialTodos={mockTodos} initialCategories={mockCategories} />)
+
+    const searchInput = screen.getByLabelText(/search todos/i)
+    expect(searchInput).toBeInTheDocument()
+    expect(searchInput).toHaveAttribute('type', 'search')
+  })
+
+  it('should call API with search query after debounce', async () => {
+    jest.useFakeTimers()
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+
+    const searchResults: TodoWithCategories[] = [
+      {
+        id: '1',
+        title: 'Test Todo 1',
+        description: 'Description 1',
+        is_completed: false,
+        priority: 'high',
+        due_date: null,
+        search_vector: null,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        user_id: 'test-user-id',
+        todo_categories: [],
+      },
+    ]
+
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => searchResults,
+    })
+
+    render(<TodoList initialTodos={mockTodos} initialCategories={mockCategories} />)
+
+    const searchInput = screen.getByLabelText(/search todos/i)
+    await user.type(searchInput, 'test')
+
+    jest.advanceTimersByTime(300)
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/todos?q=test',
+        undefined
+      )
+    })
+
+    jest.useRealTimers()
+  })
+
+  it('should show "No todos match your search." when search returns empty', async () => {
+    jest.useFakeTimers()
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    })
+
+    render(<TodoList initialTodos={mockTodos} initialCategories={mockCategories} />)
+
+    const searchInput = screen.getByLabelText(/search todos/i)
+    await user.type(searchInput, 'nonexistent')
+
+    jest.advanceTimersByTime(300)
+
+    await waitFor(() => {
+      expect(screen.getByText('No todos match your search.')).toBeInTheDocument()
+    })
+
+    jest.useRealTimers()
+  })
+
+  it('should clear search and show all todos when clear button is clicked', async () => {
+    jest.useFakeTimers()
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => [mockTodos[0]],
+    })
+
+    render(<TodoList initialTodos={mockTodos} initialCategories={mockCategories} />)
+
+    const searchInput = screen.getByLabelText(/search todos/i)
+    await user.type(searchInput, 'test')
+
+    jest.advanceTimersByTime(300)
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalled()
+    })
+
+    const clearButton = screen.getByLabelText(/clear search/i)
+    await user.click(clearButton)
+
+    expect(screen.getByText('Test Todo 1')).toBeInTheDocument()
+    expect(screen.getByText('Test Todo 2')).toBeInTheDocument()
+
+    jest.useRealTimers()
+  })
+
+  it('should show searching indicator while search is in progress', async () => {
+    jest.useFakeTimers()
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
+
+    let resolveSearch!: (value: unknown) => void
+    ;(global.fetch as jest.Mock).mockReturnValueOnce(
+      new Promise((resolve) => { resolveSearch = resolve })
+    )
+
+    render(<TodoList initialTodos={mockTodos} initialCategories={mockCategories} />)
+
+    const searchInput = screen.getByLabelText(/search todos/i)
+    await user.type(searchInput, 'test')
+
+    jest.advanceTimersByTime(300)
+
+    expect(screen.getByText('Searching...')).toBeInTheDocument()
+
+    resolveSearch({ ok: true, json: async () => mockTodos })
+
+    await waitFor(() => {
+      expect(screen.queryByText('Searching...')).not.toBeInTheDocument()
+    })
+
+    jest.useRealTimers()
   })
 })
 

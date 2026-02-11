@@ -1,16 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { listTodos, createTodo } from '@/lib/accessors/todos'
 import type { TodoInsert } from '@/lib/types'
 
-// GET /api/todos - List all todos
-export async function GET() {
+// GET /api/todos - List all todos (with optional full-text search via ?q=)
+export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
+    const query = searchParams.get('q')?.trim() || ''
 
-    const { data, error } = await supabase
-      .from('todos')
-      .select('*, todo_categories(category_id, categories(*))')
-      .order('created_at', { ascending: false })
+    const { data, error } = await listTodos(query || undefined)
 
     if (error) {
       console.error('Error fetching todos:', error)
@@ -62,11 +61,7 @@ export async function POST(request: Request) {
       user_id: user.id,
     }
 
-    const { data, error } = await supabase
-      .from('todos')
-      .insert(todoData)
-      .select()
-      .single()
+    const { data, error } = await createTodo(todoData, body.category_ids)
 
     if (error) {
       console.error('Error creating todo:', error)
@@ -76,32 +71,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Assign categories if provided
-    const categoryIds: string[] = body.category_ids || []
-    if (categoryIds.length > 0) {
-      const junctionRows = categoryIds.map(categoryId => ({
-        todo_id: data.id,
-        category_id: categoryId,
-      }))
-
-      const { error: catError } = await supabase
-        .from('todo_categories')
-        .insert(junctionRows)
-
-      if (catError) {
-        console.error('Error assigning categories:', catError)
-        // Todo was created, categories just failed to assign — don't fail the whole request
-      }
-    }
-
-    // Re-fetch with categories included
-    const { data: todoWithCategories } = await supabase
-      .from('todos')
-      .select('*, todo_categories(category_id, categories(*))')
-      .eq('id', data.id)
-      .single()
-
-    return NextResponse.json(todoWithCategories ?? data, { status: 201 })
+    return NextResponse.json(data, { status: 201 })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json(

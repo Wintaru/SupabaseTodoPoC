@@ -27,6 +27,10 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<TodoWithCategories[] | null>(null)
+  const [isSearching, setIsSearching] = useState(false)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const categoriesChannelRef = useRef<RealtimeChannel | null>(null)
   const todoCategoriesChannelRef = useRef<RealtimeChannel | null>(null)
@@ -210,6 +214,7 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
       if (channelRef.current) supabase.removeChannel(channelRef.current)
       if (categoriesChannelRef.current) supabase.removeChannel(categoriesChannelRef.current)
       if (todoCategoriesChannelRef.current) supabase.removeChannel(todoCategoriesChannelRef.current)
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
     }
   }, [])
 
@@ -325,12 +330,53 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
     }
   }
 
-  // Filter todos by selected category
+  const handleSearch = (value: string) => {
+    setSearchQuery(value)
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    if (!value.trim()) {
+      setSearchResults(null)
+      setIsSearching(false)
+      return
+    }
+
+    setIsSearching(true)
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await apiFetch(`/api/todos?q=${encodeURIComponent(value.trim())}`)
+        if (response.ok) {
+          const data = await response.json()
+          setSearchResults(data)
+        }
+      } catch (error) {
+        console.error('Error searching todos:', error)
+      } finally {
+        setIsSearching(false)
+      }
+    }, 300)
+  }
+
+  const clearSearch = () => {
+    setSearchQuery('')
+    setSearchResults(null)
+    setIsSearching(false)
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+  }
+
+  // Determine base set of todos (search results or all)
+  const baseTodos = searchResults !== null ? searchResults : todos
+
+  // Filter by selected category
   const filteredTodos = filterCategoryId
-    ? todos.filter(todo =>
+    ? baseTodos.filter(todo =>
         todo.todo_categories.some(tc => tc.category_id === filterCategoryId)
       )
-    : todos
+    : baseTodos
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -441,11 +487,52 @@ export default function TodoList({ initialTodos, initialCategories }: TodoListPr
         onSelect={setFilterCategoryId}
       />
 
+      {/* Search Bar */}
+      <div className="relative mb-4">
+        <input
+          type="search"
+          placeholder="Search todos..."
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+          className="w-full px-4 py-2 pl-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          aria-label="Search todos"
+        />
+        <svg
+          className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
+        </svg>
+        {searchQuery && (
+          <button
+            onClick={clearSearch}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+            aria-label="Clear search"
+          >
+            &times;
+          </button>
+        )}
+      </div>
+      {isSearching && (
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Searching...</p>
+      )}
+
       {/* Todo List */}
       <div className="space-y-4">
         {filteredTodos.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-            {filterCategoryId ? 'No todos with this category.' : 'No todos yet. Add one above!'}
+            {searchResults !== null
+              ? 'No todos match your search.'
+              : filterCategoryId
+                ? 'No todos with this category.'
+                : 'No todos yet. Add one above!'}
           </p>
         ) : (
           filteredTodos.map((todo) => (

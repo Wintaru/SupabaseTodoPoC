@@ -24,6 +24,7 @@ describe('/api/todos', () => {
       order: jest.fn(() => mockSupabase),
       single: jest.fn(() => mockSupabase),
       eq: jest.fn(() => mockSupabase),
+      or: jest.fn(() => mockSupabase),
     }
     ;(createClient as jest.Mock).mockResolvedValue(mockSupabase)
   })
@@ -52,12 +53,14 @@ describe('/api/todos', () => {
         error: null,
       })
 
-      const response = await GET()
+      const request = new Request('http://localhost:3000/api/todos')
+      const response = await GET(request)
       const data = await response.json()
 
       expect(mockSupabase.from).toHaveBeenCalledWith('todos')
       expect(mockSupabase.select).toHaveBeenCalledWith('*, todo_categories(category_id, categories(*))')
       expect(mockSupabase.order).toHaveBeenCalledWith('created_at', { ascending: false })
+      expect(mockSupabase.or).not.toHaveBeenCalled()
       expect(data).toEqual(mockTodos)
       expect(response.status).toBe(200)
     })
@@ -68,11 +71,76 @@ describe('/api/todos', () => {
         error: { message: 'Database error' },
       })
 
-      const response = await GET()
+      const request = new Request('http://localhost:3000/api/todos')
+      const response = await GET(request)
       const data = await response.json()
 
       expect(data).toEqual({ error: 'Database error' })
       expect(response.status).toBe(500)
+    })
+
+    it('should filter todos using ilike when q param is provided', async () => {
+      const mockSearchResults = [
+        {
+          id: '1',
+          title: 'Important meeting notes',
+          description: 'Review quarterly goals',
+          is_completed: false,
+          priority: 'high',
+          user_id: TEST_USER_ID,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+        },
+      ]
+
+      mockSupabase.order.mockResolvedValue({
+        data: mockSearchResults,
+        error: null,
+      })
+
+      const request = new Request('http://localhost:3000/api/todos?q=important')
+      const response = await GET(request)
+      const data = await response.json()
+
+      expect(mockSupabase.or).toHaveBeenCalledWith(
+        'title.ilike.%important%,description.ilike.%important%'
+      )
+      expect(data).toEqual(mockSearchResults)
+      expect(response.status).toBe(200)
+    })
+
+    it('should return all todos when q param is empty', async () => {
+      const mockTodos = [{ id: '1', title: 'Test' }]
+
+      mockSupabase.order.mockResolvedValue({
+        data: mockTodos,
+        error: null,
+      })
+
+      const request = new Request('http://localhost:3000/api/todos?q=')
+      const response = await GET(request)
+      const data = await response.json()
+
+      expect(mockSupabase.or).not.toHaveBeenCalled()
+      expect(data).toEqual(mockTodos)
+      expect(response.status).toBe(200)
+    })
+
+    it('should return all todos when q param is whitespace only', async () => {
+      const mockTodos = [{ id: '1', title: 'Test' }]
+
+      mockSupabase.order.mockResolvedValue({
+        data: mockTodos,
+        error: null,
+      })
+
+      const request = new Request('http://localhost:3000/api/todos?q=%20%20')
+      const response = await GET(request)
+      const data = await response.json()
+
+      expect(mockSupabase.or).not.toHaveBeenCalled()
+      expect(data).toEqual(mockTodos)
+      expect(response.status).toBe(200)
     })
   })
 

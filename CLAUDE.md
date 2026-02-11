@@ -184,6 +184,48 @@ if (response.status === 401) { window.location.href = '/login'; return }
 - Run `supabase gen types typescript --local > lib/types/database.types.ts` after schema changes
 - Never manually define database types
 
+### Accessor Pattern for Data Access
+
+**Rule:** Database queries live in accessor modules under `lib/accessors/`, not in API route handlers. API routes handle HTTP concerns only (auth, validation, request parsing, response formatting).
+
+**Structure:**
+- **Accessor files:** `lib/accessors/<entity>.ts` (e.g., `lib/accessors/todos.ts`)
+- **Exports:** Plain async functions, one per DB operation (e.g., `listTodos`, `getTodo`, `createTodo`, `updateTodo`, `deleteTodo`)
+- **Returns:** Raw Supabase `{ data, error }` — the route decides how to format the HTTP response
+- **Client creation:** Each function calls `createClient()` internally
+- **No auth checks:** Auth is a request-level concern that stays in the route handler
+
+**Example — accessor:**
+```typescript
+// lib/accessors/todos.ts
+import { createClient } from '@/lib/supabase/server'
+import type { TodoInsert } from '@/lib/types'
+
+export async function listTodos(searchQuery?: string) {
+  const supabase = await createClient()
+  let query = supabase.from('todos').select('*')
+  if (searchQuery) {
+    query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+  }
+  return query.order('created_at', { ascending: false })
+}
+```
+
+**Example — route using accessor:**
+```typescript
+// app/api/todos/route.ts
+import { listTodos } from '@/lib/accessors/todos'
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const query = searchParams.get('q')?.trim() || ''
+  const { data, error } = await listTodos(query || undefined)
+  // ... error handling and response formatting
+}
+```
+
+**When adding a new entity**, create its accessor module first, then build routes that call it.
+
 ## Development Workflow
 
 ### Making Changes
@@ -422,6 +464,7 @@ Get keys by running: `supabase status`
 8. **DRY through shared components** - Reusable UI behaviors (e.g., `ConfirmDialog`) live in `components/ui/` with context providers and hooks
 9. **Tests are not optional** - Every feature, bug fix, and behavioral change must include corresponding tests
 10. **Separate concerns, not layers** - Organize by responsibility and volatility, not by arbitrary technical layers
+11. **Accessor pattern for data access** - DB queries go in `lib/accessors/`, API routes handle HTTP concerns only
 
 ---
 

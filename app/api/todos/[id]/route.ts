@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { getTodo, updateTodo, deleteTodo } from '@/lib/accessors/todos'
 import type { TodoUpdate } from '@/lib/types'
 
 type Params = Promise<{ id: string }>
@@ -11,13 +12,8 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params
-    const supabase = await createClient()
 
-    const { data, error } = await supabase
-      .from('todos')
-      .select('*')
-      .eq('id', id)
-      .single()
+    const { data, error } = await getTodo(id)
 
     if (error) {
       console.error('Error fetching todo:', error)
@@ -84,12 +80,7 @@ export async function PATCH(
       updateData.due_date = body.due_date || null
     }
 
-    const { data, error } = await supabase
-      .from('todos')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single()
+    const { data, error } = await updateTodo(id, updateData)
 
     if (error) {
       console.error('Error updating todo:', error)
@@ -127,10 +118,7 @@ export async function DELETE(
       )
     }
 
-    const { error } = await supabase
-      .from('todos')
-      .delete()
-      .eq('id', id)
+    const { error } = await deleteTodo(id)
 
     if (error) {
       console.error('Error deleting todo:', error)

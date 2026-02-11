@@ -137,6 +137,7 @@ export type Database = {
           id: string
           is_completed: boolean | null
           priority: string
+          search_vector: unknown
           title: string
           updated_at: string
           user_id: string | null
@@ -148,6 +149,7 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           priority?: string
+          search_vector?: unknown
           title: string
           updated_at?: string
           user_id?: string | null
@@ -159,6 +161,7 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           priority?: string
+          search_vector?: unknown
           title?: string
           updated_at?: string
           user_id?: string | null
