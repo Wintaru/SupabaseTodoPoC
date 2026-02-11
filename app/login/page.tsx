@@ -4,6 +4,8 @@ import { useState, FormEvent, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import OAuthButton from '@/components/auth/OAuthButton'
+import MicrosoftIcon from '@/components/auth/MicrosoftIcon'
 
 function LoginForm() {
   const [email, setEmail] = useState('')
@@ -67,6 +69,24 @@ function LoginForm() {
               create a new account
             </Link>
           </p>
+        </div>
+
+        <OAuthButton
+          provider="azure"
+          label="Sign in with Microsoft"
+          icon={<MicrosoftIcon />}
+          scopes="openid email profile"
+        />
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+              Or continue with email
+            </span>
+          </div>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleLogin} method="POST">

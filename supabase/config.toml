@@ -149,7 +149,7 @@ enabled = true
 # in emails.
 site_url = "http://127.0.0.1:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+additional_redirect_urls = ["https://127.0.0.1:3000", "http://127.0.0.1:3000/auth/callback", "http://localhost:3000/auth/callback"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).
@@ -309,6 +309,22 @@ redirect_uri = ""
 # or any other third-party OIDC providers.
 url = ""
 # If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
+skip_nonce_check = false
+# If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
+email_optional = false
+
+[auth.external.azure]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_AZURE_CLIENT_ID)"
+# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
+secret = "env(SUPABASE_AUTH_EXTERNAL_AZURE_SECRET)"
+# Azure requires "http://localhost" (not "http://127.0.0.1") for non-HTTPS redirect URIs.
+redirect_uri = "http://localhost:54321/auth/v1/callback"
+# Azure AD authorization endpoint.
+# Multi-tenant: https://login.microsoftonline.com/common
+# Single-tenant: https://login.microsoftonline.com/<your-tenant-id>
+url = "https://login.microsoftonline.com/common"
+# If enabled, the nonce check will be skipped.
 skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false

@@ -152,6 +152,7 @@ Soupabase/
 │   ├── login/, signup/         # Auth pages
 │   └── todos/                  # Todo list page
 ├── components/                 # React components
+│   ├── auth/                   # Auth components (SignOut, OAuth buttons)
 │   ├── todos/                  # Todo-specific components
 │   └── ui/                     # Shared UI (modals, etc.)
 ├── lib/
@@ -171,6 +172,66 @@ Soupabase/
 - **Supabase** (PostgreSQL, Auth, Realtime)
 - **Tailwind CSS** (with dark mode support)
 - **Jest** + **React Testing Library**
+
+## Microsoft SSO (Optional)
+
+To enable "Sign in with Microsoft":
+
+1. **Register an Azure App:**
+   - Go to [Azure Portal](https://portal.azure.com) > Microsoft Entra ID > App registrations > New registration
+   - Name: "Soupabase Local Dev" (or any name)
+   - Supported account types: Choose based on your needs (multi-tenant for any Microsoft account)
+   - Redirect URI: Web — `http://localhost:54321/auth/v1/callback`
+   - Click Register
+
+2. **Add API permissions:**
+   - Go to **API permissions** > **Add a permission** > **Microsoft Graph** > **Delegated permissions**
+   - Add: `email`, `openid`, `profile`, and `User.Read`
+   - Click **Grant admin consent** for your directory
+
+3. **Add optional claims** (required for Azure to include email in the token):
+   - Go to **Token configuration** > **Add optional claim**
+   - Select **ID** token type
+   - Check **`email`** and click **Add**
+   - If prompted to add the Microsoft Graph `email` permission, confirm it
+
+4. **Get credentials:**
+   - Copy the **Application (client) ID** from the Overview page
+   - Go to Certificates & secrets > New client secret > copy the **Value** (not the Secret ID)
+
+5. **Configure locally:**
+   Add to `supabase/.env.local`:
+   ```bash
+   SUPABASE_AUTH_EXTERNAL_AZURE_CLIENT_ID=<your-client-id>
+   SUPABASE_AUTH_EXTERNAL_AZURE_SECRET=<your-client-secret>
+   ```
+
+6. **Restart Supabase:**
+   ```bash
+   supabase stop && supabase start
+   ```
+
+The "Sign in with Microsoft" button will appear on the login and signup pages.
+
+### Troubleshooting Microsoft SSO
+
+**"Bad request" or 400 error when clicking the button:**
+- Clear browser cookies for **both** `127.0.0.1` **and** `localhost` (DevTools > Application > Cookies). Stale auth cookies from previous sessions can block the OAuth flow.
+- If clearing cookies doesn't help, try an **incognito/private window**.
+
+**"Error getting user email from external provider":**
+- You're missing the optional email claim in Azure. Complete step 3 above (Token configuration > Add optional claim > ID token > email).
+- Verify you granted admin consent for the API permissions in step 2.
+
+**Redirect URI error in Azure ("Must start with HTTPS or http://localhost"):**
+- Azure requires `http://localhost` (not `http://127.0.0.1`) for non-HTTPS redirect URIs. Use `http://localhost:54321/auth/v1/callback` exactly as shown in step 1.
+
+**Credentials not working after restart:**
+- Azure credentials go in `supabase/.env.local` (the Supabase directory), **not** the root `.env.local`. The root file is for Next.js; the Supabase directory file is read by the Docker auth service.
+- Verify with: `docker exec supabase_auth_<project> printenv | grep -i azure`
+
+**Signed in but redirected back to login instead of the app:**
+- This usually means the auth callback route isn't setting cookies correctly on the redirect response. Ensure `app/auth/callback/route.ts` creates the `NextResponse.redirect` first, then builds the Supabase client with cookie handlers that write directly to that response object.
 
 ## Further Reading
 
